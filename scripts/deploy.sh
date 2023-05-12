@@ -31,14 +31,18 @@ function deploy {
   local -r env="$1"
   require_docker
   init_nodejs
-  export_aws_credentials "${env}"
   npm_ci_if_package_lock_has_changed
-  bootstrap_cdk
+  if [ "${env}" == "util" ]; then
+    bootstrap_cdk
+  fi
 }
 
 function bootstrap_cdk {
-  local -r accountId=$(aws sts get-caller-identity --query Account --output text)
-  npx cdk bootstrap aws://${accountId}/eu-west-1
+  for e in util dev qa prod; do
+    export_aws_credentials "${e}"
+    accountId=$(aws sts get-caller-identity --query Account --output text)
+    npx cdk bootstrap aws://${accountId}/eu-west-1
+  done
 }
 
 function export_aws_credentials {
