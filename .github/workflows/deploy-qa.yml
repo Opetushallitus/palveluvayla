@@ -1,3 +1,5 @@
+name: Deploy qa
+
 on:
   workflow_dispatch:
     inputs:

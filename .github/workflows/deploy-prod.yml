@@ -1,3 +1,5 @@
+name: Deploy prod
+
 on:
   workflow_dispatch:
     inputs:
