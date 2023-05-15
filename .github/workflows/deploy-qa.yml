@@ -1,0 +1,26 @@
+on:
+  push:
+    tags:
+      - "green-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-qa:
+    name: Deploy qa
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run deploy-qa.sh
+        shell: bash
+        run: ./deploy-qa.sh
+
+      - name: Tag green build
+        run: |
+          git tag --force green-qa
+          git push --force origin green-qa
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
