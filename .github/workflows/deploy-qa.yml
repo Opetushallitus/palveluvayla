@@ -1,7 +1,9 @@
 on:
-  push:
-    tag:
-      - "green-dev"
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit to deploy"
+        default: "green-dev"
 
 permissions:
   contents: write
@@ -13,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.commit }}
 
       - name: Run deploy-qa.sh
         shell: bash
