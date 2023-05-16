@@ -38,7 +38,7 @@ function deploy {
 
 function bootstrap_cdk {
   local -r accountId=$(aws sts get-caller-identity --query Account --output text)
-  echo npx cdk bootstrap aws://${accountId}/eu-west-1
+  npx cdk bootstrap aws://${accountId}/eu-west-1
 }
 
 function export_aws_credentials {
