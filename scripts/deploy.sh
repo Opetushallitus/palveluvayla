@@ -49,19 +49,13 @@ function bootstrap_cdk {
 }
 
 function export_aws_credentials {
-  if ! running_on_github_actions; then
-    local -r env=$1
-    export AWS_PROFILE="oph-palveluvayla-${env}"
+  local -r env=$1
+  export AWS_PROFILE="oph-palveluvayla-${env}"
 
-    info "Checking AWS credentials for env $env"
-    if ! aws sts get-caller-identity >/dev/null; then
-      fatal "AWS credentials are not configured env $env. Aborting."
-    fi
+  info "Checking AWS credentials for env $env"
+  if ! aws sts get-caller-identity >/dev/null; then
+    fatal "AWS credentials are not configured env $env. Aborting."
   fi
-}
-
-function running_on_github_actions {
-  [ -n "${GITHUB_ACTIONS:-}" ]
 }
 
 function aws {
