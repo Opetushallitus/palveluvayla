@@ -34,6 +34,8 @@ function deploy {
   npm_ci_if_package_lock_has_changed
   if [ "${env}" == "util" ]; then
     bootstrap_cdk
+    export_aws_credentials "${env}"
+    npx cdk --app "npx ts-node ${repo}/src/cdk-app-util.ts" deploy --require-approval never --all
   else
     export_aws_credentials "${env}"
     npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
