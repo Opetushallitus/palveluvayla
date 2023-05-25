@@ -38,6 +38,10 @@ function deploy {
     npx cdk --app "npx ts-node ${repo}/src/cdk-app-util.ts" deploy --require-approval never --all
   else
     export_aws_credentials "${env}"
+    local -r accountId=$(get_aws_account_id)
+    local -r region="eu-west-1"
+    export CDK_DEFAULT_ACCOUNT=${accountId}
+    export CDK_DEFAULT_REGION=${region}
     npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
   fi
 }
@@ -45,7 +49,7 @@ function deploy {
 function bootstrap_cdk {
   for e in util dev qa prod; do
     export_aws_credentials "${e}"
-    accountId=$(aws sts get-caller-identity --query Account --output text)
+    accountId=$(get_aws_account_id)
     npx cdk bootstrap aws://${accountId}/eu-west-1
   done
 }
@@ -58,6 +62,10 @@ function export_aws_credentials {
   if ! aws sts get-caller-identity >/dev/null; then
     fatal "AWS credentials are not configured env $env. Aborting."
   fi
+}
+
+function get_aws_account_id {
+  aws sts get-caller-identity --query Account --output text
 }
 
 function aws {

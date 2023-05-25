@@ -1,22 +1,36 @@
 import * as cdk from "aws-cdk-lib";
 import * as constructs from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 class CdkApp extends cdk.App {
-  constructor(props: cdk.AppProps) {
-    super(props);
-    new XroadSecurityServerStack(this, "XroadSecurityServerStack", {});
+  constructor() {
+    super();
+    const env = {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    };
+    new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
+      env: env,
+    });
   }
 }
 
 class XroadSecurityServerStack extends cdk.Stack {
-  constructor(scope: constructs.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
-
     const inIpAddress = new ec2.CfnEIP(this, "InIpAddress", {});
     const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {});
+
+    const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
+    const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
+
+    const hostedZone = new route53.HostedZone(this, "HostedZone", {
+      zoneName: `${env}.${domain}`,
+    });
   }
 }
 
-const app = new CdkApp({});
+const app = new CdkApp();
 app.synth();
