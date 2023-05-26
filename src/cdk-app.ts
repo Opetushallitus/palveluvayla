@@ -29,6 +29,20 @@ class XroadSecurityServerStack extends cdk.Stack {
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
       zoneName: `${env}.${domain}`,
     });
+    const securityServerNlbARecord = new route53.ARecord(
+      this,
+      "SecurityServerNLB",
+      {
+        recordName: this.hostName(env),
+        zone: hostedZone,
+        target: route53.RecordTarget.fromIpAddresses(inIpAddress.ref),
+      }
+    );
+  }
+
+  private hostName(env: string) {
+    const part = env == "qa" ? "test" : env;
+    return `oph${part}01`;
   }
 }
 
