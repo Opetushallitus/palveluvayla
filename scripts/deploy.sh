@@ -37,21 +37,36 @@ function deploy {
     export_aws_credentials "${env}"
     npx cdk --app "npx ts-node ${repo}/src/cdk-app-util.ts" deploy --require-approval never --all
   else
-    export_aws_credentials "${env}"
-    local -r accountId=$(get_aws_account_id)
-    local -r region="eu-west-1"
+    local -r accountId=$(get_aws_account_id_of_env "${env}")
+    local -r region=$(get_aws_region_of_env "${env}")
     export CDK_DEFAULT_ACCOUNT=${accountId}
     export CDK_DEFAULT_REGION=${region}
+    if ! is_running_on_codebuild; then
+      export_aws_credentials "${env}"
+    fi
     npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
   fi
 }
 
 function bootstrap_cdk {
-  for e in util dev qa prod; do
+  export_aws_credentials "util"
+  util_account_id=$(get_aws_account_id_of_env "util")
+  region=$(get_aws_region_of_env "util")
+  info "Bootstrapping CDK for util account ${util_account_id}/${region}"
+  npx cdk bootstrap aws://${util_account_id}/${region}
+
+  for e in dev qa prod; do
+    export_aws_credentials "util"
+    account_id=$(get_aws_account_id_of_env ${e})
+    region=$(get_aws_region_of_env ${e})
     export_aws_credentials "${e}"
-    accountId=$(get_aws_account_id)
-    npx cdk bootstrap aws://${accountId}/eu-west-1
+    info "Bootstrapping CDK for env ${account_id}/${region}"
+    npx cdk bootstrap aws://${account_id}/${region}
   done
+}
+
+function is_running_on_codebuild {
+  [ -n "${CODEBUILD_BUILD_ID:-}" ]
 }
 
 function export_aws_credentials {
@@ -62,6 +77,25 @@ function export_aws_credentials {
   if ! aws sts get-caller-identity >/dev/null; then
     fatal "AWS credentials are not configured env $env. Aborting."
   fi
+}
+
+function get_aws_region_of_env {
+  local -r env=$1
+  get_env_specific_param ${env} region
+}
+
+function get_aws_account_id_of_env {
+  local -r env=$1
+  get_env_specific_param ${env} account_id
+}
+
+function get_env_specific_param {
+  local -r env=$1
+  local -r param=$2
+  if ! is_running_on_codebuild; then
+    export_aws_credentials "util"
+  fi
+  aws ssm get-parameter --name "/envs/${env}/${param}" --query Parameter.Value --output text
 }
 
 function get_aws_account_id {
