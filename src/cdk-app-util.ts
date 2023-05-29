@@ -31,6 +31,7 @@ class DeploymentStack extends cdk.Stack {
       new codepipeline_actions.CodeStarConnectionsSourceAction({
         actionName: "Source",
         connectionArn: connection.attrConnectionArn,
+        codeBuildCloneOutput: true,
         owner: "Opetushallitus",
         repo: "palveluvayla",
         branch: "main",
