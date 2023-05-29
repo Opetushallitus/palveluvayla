@@ -46,7 +46,7 @@ class DeploymentStack extends cdk.Stack {
         projectName: "DeployDev",
         concurrentBuildLimit: 1,
         environment: {
-          buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+          buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           computeType: codebuild.ComputeType.SMALL,
         },
         buildSpec: codebuild.BuildSpec.fromObject({
