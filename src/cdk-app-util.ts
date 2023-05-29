@@ -48,6 +48,7 @@ class DeploymentStack extends cdk.Stack {
         environment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           computeType: codebuild.ComputeType.SMALL,
+          privileged: true,
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
