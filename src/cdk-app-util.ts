@@ -48,6 +48,14 @@ class DeploymentStack extends cdk.Stack {
           buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
           computeType: codebuild.ComputeType.SMALL,
         },
+        buildSpec: codebuild.BuildSpec.fromObject({
+          version: "0.2",
+          phases: {
+            build: {
+              commands: ["./deploy-dev.sh"],
+            },
+          },
+        }),
       }),
     });
     const buildStage = pipeline.addStage({ stageName: "Deploy" });
