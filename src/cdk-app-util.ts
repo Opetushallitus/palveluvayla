@@ -4,6 +4,7 @@ import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as constructs from "constructs";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 class CdkAppUtil extends cdk.App {
   constructor(props: cdk.AppProps) {
@@ -39,10 +40,10 @@ class DeploymentStack extends cdk.Stack {
       });
     const sourceStage = pipeline.addStage({ stageName: "Source" });
     sourceStage.addAction(sourceAction);
-    const buildAction = new codepipeline_actions.CodeBuildAction({
-      actionName: "Deploy",
-      input: sourceOutput,
-      project: new codebuild.PipelineProject(this, "DeployDevProject", {
+    const deployProject = new codebuild.PipelineProject(
+      this,
+      "DeployDevProject",
+      {
         projectName: "DeployDev",
         concurrentBuildLimit: 1,
         environment: {
@@ -58,10 +59,27 @@ class DeploymentStack extends cdk.Stack {
             },
           },
         }),
-      }),
+      }
+    );
+
+    deployProject.role?.attachInlinePolicy(
+      new iam.Policy(this, "DeployDevPolicy", {
+        statements: [
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["sts:AssumeRole"],
+            resources: [`arn:aws:iam::*:role/cdk-*-lookup-role-*`],
+          }),
+        ],
+      })
+    );
+    const deployAction = new codepipeline_actions.CodeBuildAction({
+      actionName: "Deploy",
+      input: sourceOutput,
+      project: deployProject,
     });
-    const buildStage = pipeline.addStage({ stageName: "Deploy" });
-    buildStage.addAction(buildAction);
+    const deployStage = pipeline.addStage({ stageName: "Deploy" });
+    deployStage.addAction(deployAction);
   }
 }
 
