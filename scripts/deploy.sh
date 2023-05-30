@@ -33,19 +33,28 @@ function deploy {
   init_nodejs
   npm_ci_if_package_lock_has_changed
   if [ "${env}" == "util" ]; then
-    bootstrap_cdk
-    export_aws_credentials "${env}"
-    npx cdk --app "npx ts-node ${repo}/src/cdk-app-util.ts" deploy --require-approval never --all
+    deploy_util
   else
-    local -r accountId=$(get_aws_account_id_of_env "${env}")
-    local -r region=$(get_aws_region_of_env "${env}")
-    export CDK_DEFAULT_ACCOUNT=${accountId}
-    export CDK_DEFAULT_REGION=${region}
-    if ! is_running_on_codebuild; then
-      export_aws_credentials "${env}"
-    fi
-    npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
+    deploy_env "${env}"
   fi
+}
+
+function deploy_util {
+  bootstrap_cdk
+  export_aws_credentials "util"
+  npx cdk --app "npx ts-node ${repo}/src/cdk-app-util.ts" deploy --require-approval never --all
+}
+
+function deploy_env {
+  local -r env="$1"
+  local -r accountId=$(get_aws_account_id_of_env "${env}")
+  local -r region=$(get_aws_region_of_env "${env}")
+  export CDK_DEFAULT_ACCOUNT=${accountId}
+  export CDK_DEFAULT_REGION=${region}
+  if ! is_running_on_codebuild; then
+    export_aws_credentials "${env}"
+  fi
+  npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
 }
 
 function bootstrap_cdk {
