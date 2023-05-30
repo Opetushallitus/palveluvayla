@@ -123,6 +123,7 @@ function aws {
   docker run \
     --platform linux/amd64 \
     --env AWS_PROFILE \
+    --env AWS_DEFAULT_REGION \
     --volume "${HOME}/.aws:/root/.aws" \
     --volume "$(pwd):/aws" \
     --rm \
