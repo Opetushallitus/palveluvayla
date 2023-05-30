@@ -69,9 +69,17 @@ function bootstrap_cdk {
     account_id=$(get_aws_account_id_of_env ${e})
     region=$(get_aws_region_of_env ${e})
     export_aws_credentials "${e}"
-    info "Bootstrapping CDK for env ${account_id}/${region}"
-    npx cdk bootstrap aws://${account_id}/${region}
+    info "Setting up CDK deployment target policy for env ${e}"
+    setup_cdk_deployment_target_policies
+    info "Bootstrapping CDK for env ${e} at ${account_id}/${region}"
+    npx cdk bootstrap aws://${account_id}/${region} \
+      --trust ${util_account_id} \
+      --cloudformation-execution-policies "arn:aws:iam::${account_id}:policy/CDKDeploymentTargetPermissions"
   done
+}
+
+function setup_cdk_deployment_target_policies {
+  npx ts-node "${repo}/src/setup-cdk-deployment-target-policy.ts"
 }
 
 function is_running_on_codebuild {
