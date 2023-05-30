@@ -47,12 +47,12 @@ function deploy_util {
 
 function deploy_env {
   local -r env="$1"
-  local -r accountId=$(get_aws_account_id_of_env "${env}")
-  local -r region=$(get_aws_region_of_env "${env}")
-  export CDK_DEFAULT_ACCOUNT=${accountId}
-  export CDK_DEFAULT_REGION=${region}
   if ! is_running_on_codebuild; then
-    export_aws_credentials "${env}"
+    export_aws_credentials "util"
+    local -r accountId=$(get_aws_account_id_of_env "${env}")
+    local -r region=$(get_aws_region_of_env "${env}")
+    export CDK_DEFAULT_ACCOUNT=${accountId}
+    export CDK_DEFAULT_REGION=${region}
   fi
   npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
 }

@@ -5,6 +5,7 @@ import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as constructs from "constructs";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 class CdkAppUtil extends cdk.App {
   constructor(props: cdk.AppProps) {
@@ -50,6 +51,16 @@ class DeploymentStack extends cdk.Stack {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           computeType: codebuild.ComputeType.SMALL,
           privileged: true,
+        },
+        environmentVariables: {
+          CDK_DEFAULT_ACCOUNT: {
+            type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: "/env/dev/account_id",
+          },
+          CDK_DEFAULT_REGION: {
+            type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: "/env/dev/region",
+          },
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
