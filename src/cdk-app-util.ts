@@ -11,7 +11,13 @@ class CdkAppUtil extends cdk.App {
   constructor(props: cdk.AppProps) {
     super(props);
   }
-  deploymentstack = new DeploymentStack(this, "DeploymentStack");
+  env = {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  };
+  deploymentstack = new DeploymentStack(this, "DeploymentStack", {
+    env: this.env,
+  });
 }
 
 class DeploymentStack extends cdk.Stack {
@@ -73,13 +79,24 @@ class DeploymentStack extends cdk.Stack {
       }
     );
 
+    const deploymentTargetAccount = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/dev/account_id"
+    );
+    const deploymentTargetRegion = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/dev/region"
+    );
+
     deployProject.role?.attachInlinePolicy(
       new iam.Policy(this, "DeployDevPolicy", {
         statements: [
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: ["sts:AssumeRole"],
-            resources: [`arn:aws:iam::*:role/cdk-*-lookup-role-*`],
+            resources: [
+              `arn:aws:iam::${deploymentTargetAccount}:role/cdk-hnb659fds-lookup-role-${deploymentTargetAccount}-${deploymentTargetRegion}`,
+            ],
           }),
         ],
       })
