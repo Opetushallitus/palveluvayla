@@ -8,8 +8,8 @@ class CdkApp extends cdk.App {
   constructor() {
     super();
     const env = {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: process.env.CDK_DEFAULT_REGION,
+      account: process.env.CDK_DEPLOY_TARGET_ACCOUNT,
+      region: process.env.CDK_DEPLOY_TARGET_REGION,
     };
     new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
       env: env,

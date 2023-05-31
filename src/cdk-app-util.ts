@@ -53,11 +53,11 @@ class DeploymentStack extends cdk.Stack {
           privileged: true,
         },
         environmentVariables: {
-          CDK_DEFAULT_ACCOUNT: {
+          CDK_DEPLOY_TARGET_ACCOUNT: {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
             value: "/env/dev/account_id",
           },
-          CDK_DEFAULT_REGION: {
+          CDK_DEPLOY_TARGET_REGION: {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
             value: "/env/dev/region",
           },
