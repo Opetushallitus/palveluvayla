@@ -96,6 +96,7 @@ class DeploymentStack extends cdk.Stack {
             actions: ["sts:AssumeRole"],
             resources: [
               `arn:aws:iam::${deploymentTargetAccount}:role/cdk-hnb659fds-lookup-role-${deploymentTargetAccount}-${deploymentTargetRegion}`,
+              `arn:aws:iam::${deploymentTargetAccount}:role/cdk-hnb659fds-deploy-role-${deploymentTargetAccount}-${deploymentTargetRegion}`,
             ],
           }),
         ],
