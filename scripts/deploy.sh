@@ -74,6 +74,7 @@ function bootstrap_cdk {
     info "Bootstrapping CDK for env ${e} at ${account_id}/${region}"
     npx cdk bootstrap aws://${account_id}/${region} \
       --trust ${util_account_id} \
+      --trust-for-lookup ${util_account_id} \
       --cloudformation-execution-policies "arn:aws:iam::${account_id}:policy/CDKDeploymentTargetPermissions"
   done
 }
