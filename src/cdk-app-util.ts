@@ -31,9 +31,60 @@ class DeploymentStack extends cdk.Stack {
         providerType: "GitHub",
       }
     );
-    const pipeline = new codepipeline.Pipeline(this, "DeployDevPipeline", {
-      pipelineName: "DeployDev",
-    });
+
+    const devDeploymentPipeline = new DeploymentPipelineStack(
+      this,
+      "DevDeploymentPipeline",
+      connection,
+      "dev",
+      props
+    );
+    const qaDeploymentPipeline = new DeploymentPipelineStack(
+      this,
+      "QaDeploymentPipeline",
+      connection,
+      "qa",
+      props
+    );
+    const prodDeploymentPipeline = new DeploymentPipelineStack(
+      this,
+      "ProdDeploymentPipeline",
+      connection,
+      "prod",
+      props
+    );
+  }
+}
+
+class DeploymentPipelineStack extends cdk.Stack {
+  constructor(
+    scope: constructs.Construct,
+    id: string,
+    connection: codestarconnections.CfnConnection,
+    env: string,
+    props?: cdk.StackProps
+  ) {
+    super(scope, id, props);
+    const capitalizedEnv = env.charAt(0).toUpperCase() + env.slice(1);
+    const pipeline = new codepipeline.Pipeline(
+      this,
+      `Deploy${capitalizedEnv}Pipeline`,
+      {
+        pipelineName: `Deploy${capitalizedEnv}`,
+      }
+    );
+    let branch;
+    switch (env) {
+      case "dev":
+        branch = "main";
+        break;
+      case "qa":
+        branch = "green-dev";
+        break;
+      case "prod":
+        branch = "green-qa";
+        break;
+    }
     const sourceOutput = new codepipeline.Artifact();
     const sourceAction =
       new codepipeline_actions.CodeStarConnectionsSourceAction({
@@ -42,16 +93,16 @@ class DeploymentStack extends cdk.Stack {
         codeBuildCloneOutput: true,
         owner: "Opetushallitus",
         repo: "palveluvayla",
-        branch: "main",
+        branch: branch,
         output: sourceOutput,
       });
     const sourceStage = pipeline.addStage({ stageName: "Source" });
     sourceStage.addAction(sourceAction);
     const deployProject = new codebuild.PipelineProject(
       this,
-      "DeployDevProject",
+      `Deploy${capitalizedEnv}Project`,
       {
-        projectName: "DeployDev",
+        projectName: `Deploy${capitalizedEnv}`,
         concurrentBuildLimit: 1,
         environment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
@@ -61,11 +112,11 @@ class DeploymentStack extends cdk.Stack {
         environmentVariables: {
           CDK_DEPLOY_TARGET_ACCOUNT: {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: "/env/dev/account_id",
+            value: `/env/${env}/account_id`,
           },
           CDK_DEPLOY_TARGET_REGION: {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: "/env/dev/region",
+            value: `/env/${env}/region`,
           },
           GITHUB_DEPLOYMENT_KEY: {
             type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
@@ -76,7 +127,7 @@ class DeploymentStack extends cdk.Stack {
           version: "0.2",
           phases: {
             build: {
-              commands: ["./deploy-dev.sh", "./tag-green-dev.sh"],
+              commands: [`./deploy-${env}.sh`, `./tag-green-${env}.sh`],
             },
           },
         }),
@@ -85,15 +136,15 @@ class DeploymentStack extends cdk.Stack {
 
     const deploymentTargetAccount = ssm.StringParameter.valueFromLookup(
       this,
-      "/env/dev/account_id"
+      `/env/${env}/account_id`
     );
     const deploymentTargetRegion = ssm.StringParameter.valueFromLookup(
       this,
-      "/env/dev/region"
+      `/env/${env}/region`
     );
 
     deployProject.role?.attachInlinePolicy(
-      new iam.Policy(this, "DeployDevPolicy", {
+      new iam.Policy(this, `Deploy${capitalizedEnv}Policy`, {
         statements: [
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
