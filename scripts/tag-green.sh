@@ -31,13 +31,13 @@ function tag-green {
   local -r env="$1"
   local -r tmp_dir=$(mktemp -d)
   local -r key="${tmp_dir}/deployment.key"
-  local -r clone_dir="${tmp_dir}/palveluvayla
+  local -r clone_dir="${tmp_dir}/palveluvayla"
   trap "rm -rf ${tmp_dir}" EXIT
 
   echo -n ${GITHUB_DEPLOYMENT_KEY} | base64 -d >"${key}"
   chmod 600 "${key}"
 
-  git clone -c "core.sshCommand=ssh -i ${key} -F /dev/null" git@github.com:opetushallitus/palveluvayla.git "${clone_dir}
+  git clone -c "core.sshCommand=ssh -i ${key} -F /dev/null" git@github.com:opetushallitus/palveluvayla.git "${clone_dir}"
   cd ${clone_dir}
   force_push_tag "green-${env}-$(date +"%Y%m%d%H%M%S")"
   force_push_tag "green-${env}"
