@@ -73,16 +73,16 @@ class DeploymentPipelineStack extends cdk.Stack {
         pipelineName: `Deploy${capitalizedEnv}`,
       }
     );
-    let branch;
+    let tag;
     switch (env) {
       case "dev":
-        branch = "main";
+        tag = "main";
         break;
       case "qa":
-        branch = "green-dev";
+        tag = "green-dev";
         break;
       case "prod":
-        branch = "green-qa";
+        tag = "green-qa";
         break;
     }
     const sourceOutput = new codepipeline.Artifact();
@@ -93,8 +93,9 @@ class DeploymentPipelineStack extends cdk.Stack {
         codeBuildCloneOutput: true,
         owner: "Opetushallitus",
         repo: "palveluvayla",
-        branch: branch,
+        branch: "main",
         output: sourceOutput,
+        triggerOnPush: env == "dev",
       });
     const sourceStage = pipeline.addStage({ stageName: "Source" });
     sourceStage.addAction(sourceAction);
@@ -125,7 +126,13 @@ class DeploymentPipelineStack extends cdk.Stack {
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
+          env: {
+            "git-credential-helper": true,
+          },
           phases: {
+            pre_build: {
+              commands: ["git checkout ${tag}"],
+            },
             build: {
               commands: [`./deploy-${env}.sh`, `./tag-green-${env}.sh`],
             },
