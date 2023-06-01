@@ -37,7 +37,7 @@ function tag-green {
   echo -n ${GITHUB_DEPLOYMENT_KEY} | base64 -d >"${key}"
   chmod 600 "${key}"
 
-  git clone -c "core.sshCommand=ssh -i ${key} -F /dev/null" git@github.com:opetushallitus/palveluvayla.git "${clone_dir}"
+  git clone -c "core.sshCommand=ssh -i ${key} -F /dev/null" git@github.com:Opetushallitus/palveluvayla.git "${clone_dir}"
   cd ${clone_dir}
   force_push_tag "green-${env}-$(date +"%Y%m%d%H%M%S")"
   force_push_tag "green-${env}"
