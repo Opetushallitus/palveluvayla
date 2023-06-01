@@ -67,12 +67,16 @@ class DeploymentStack extends cdk.Stack {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
             value: "/env/dev/region",
           },
+          GITHUB_DEPLOYMENT_KEY: {
+            type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+            value: "/github/deployment_key",
+          },
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
           phases: {
             build: {
-              commands: ["./deploy-dev.sh"],
+              commands: ["./deploy-dev.sh", "./tag-green-dev.sh"],
             },
           },
         }),
