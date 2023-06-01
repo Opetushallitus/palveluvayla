@@ -34,7 +34,7 @@ function tag-green {
   local -r clone_dir="${tmp_dir}/palveluvayla
   trap "rm -rf ${tmp_dir}" EXIT
 
-  echo -n ${GITHUB_DEPLOY_KEY} | base64 -d >"${key}"
+  echo -n ${GITHUB_DEPLOYMENT_KEY} | base64 -d >"${key}"
   chmod 600 "${key}"
 
   git clone -c "core.sshCommand=ssh -i ${key} -F /dev/null" git@github.com:opetushallitus/palveluvayla.git "${clone_dir}
