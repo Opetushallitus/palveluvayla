@@ -42,6 +42,28 @@ class XroadSecurityServerStack extends cdk.Stack {
         target: route53.RecordTarget.fromIpAddresses(inIpAddress.ref),
       }
     );
+    const natProvider = ec2.NatProvider.instance({
+      instanceType: new ec2.InstanceType("t3.nano"),
+    });
+    const vpc = new ec2.Vpc(this, "XroadSecurityServerVpc", {
+      subnetConfiguration: [
+        {
+          name: "Ingress",
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        {
+          name: "Application",
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        {
+          name: "Database",
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+        },
+      ],
+      maxAzs: 2,
+      natGateways: 1,
+      natGatewayProvider: natProvider,
+    });
   }
 
   private hostName(env: string) {

@@ -15,15 +15,13 @@ const PolicyDocument = JSON.stringify({
   Statement: [
     {
       Effect: "Allow",
-      Action: [
-        "ec2:DescribeAddresses",
-        "ec2:AllocateAddress",
-        "ec2:AddTags",
-        "ec2:CreateTags",
-        "ec2:DescribeTags",
-        "ec2:ListTagsForResource",
-      ],
+      Action: ["ec2:*"],
       Resource: "*",
+    },
+    {
+      Effect: "Allow",
+      Action: ["ssm:GetParameter", "ssm:GetParameters"],
+      Resource: "arn:aws:ssm:*:*:parameter/cdk-bootstrap/*",
     },
   ],
 });
