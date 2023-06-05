@@ -20,8 +20,12 @@ class CdkApp extends cdk.App {
 class XroadSecurityServerStack extends cdk.Stack {
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
-    const inIpAddress = new ec2.CfnEIP(this, "InIpAddress", {});
-    const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {});
+    const inIpAddress = new ec2.CfnEIP(this, "InIpAddress", {
+      tags: [{ key: "Name", value: "InIpAddress" }],
+    });
+    const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {
+      tags: [{ key: "Name", value: "OutIpAddress" }],
+    });
 
     const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");

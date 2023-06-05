@@ -19,6 +19,8 @@ const PolicyDocument = JSON.stringify({
         "ec2:DescribeAddresses",
         "ec2:AllocateAddress",
         "ec2:AddTags",
+        "ec2:CreateTags",
+        "ec2:DescribeTags",
         "ec2:ListTagsForResource",
       ],
       Resource: "*",
