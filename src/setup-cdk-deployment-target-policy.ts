@@ -20,8 +20,18 @@ const PolicyDocument = JSON.stringify({
     },
     {
       Effect: "Allow",
+      Action: ["rds:*"],
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
       Action: ["ssm:GetParameter", "ssm:GetParameters"],
       Resource: "arn:aws:ssm:*:*:parameter/cdk-bootstrap/*",
+    },
+    {
+      Effect: "Allow",
+      Action: ["secretsmanager:*"],
+      Resource: "*",
     },
   ],
 });

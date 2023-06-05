@@ -3,6 +3,7 @@ import * as constructs from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as ssm from "aws-cdk-lib/aws-ssm";
+import * as rds from "aws-cdk-lib/aws-rds";
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -29,6 +30,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
+    const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
 
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
       zoneName: `${env}.${domain}`,
@@ -64,6 +66,28 @@ class XroadSecurityServerStack extends cdk.Stack {
       natGateways: 1,
       natGatewayProvider: natProvider,
     });
+    const cluster = new rds.DatabaseCluster(
+      this,
+      "XroadSecurityServerDatabase",
+      {
+        credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
+          secretName: "XroadSecurityDatabaseAdminPassword",
+        }),
+        engine: rds.DatabaseClusterEngine.auroraPostgres({
+          version: rds.AuroraPostgresEngineVersion.VER_12_14,
+        }),
+        instanceProps: {
+          instanceType: ec2.InstanceType.of(
+            ec2.InstanceClass.T4G,
+            ec2.InstanceSize.MEDIUM
+          ),
+          vpc,
+          vpcSubnets: {
+            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          },
+        },
+      }
+    );
   }
 
   private hostName(env: string) {
