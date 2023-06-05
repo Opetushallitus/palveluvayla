@@ -1,0 +1,46 @@
+version: "3.3"
+services:
+  xroad-primary-security-server:
+    image: niis/xroad-security-server-sidecar:7.2.2-primary-fi
+    container_name: xroad-primary-security-server
+    volumes:
+      - ${ssh_key_dir}/id_rsa.pub:/etc/.ssh/id_rsa.pub
+    environment:
+      - XROAD_LOG_LEVEL=DEBUG
+      - XROAD_DB_HOST=xroad-db
+      - XROAD_DB_PORT=5432
+      - XROAD_DB_PWD=xroad
+    depends_on:
+      - xroad-db
+
+  xroad-secondary-security-server:
+    image: niis/xroad-security-server-sidecar:7.2.2-secondary-fi
+    container_name: xroad-secondary-security-server
+    ports:
+      - "14000:4000"
+      - "15588:5588"
+      - "18443:8443"
+      - "5500:5500"
+      - "5577:5577"
+    environment:
+      - XROAD_LOG_LEVEL=DEBUG
+      - XROAD_DB_HOST=xroad-db
+      - XROAD_DB_PORT=5432
+      - XROAD_DB_PWD=xroad
+      - XROAD_PRIMARY_DNS=xroad-primary-security-server
+    depends_on:
+      - xroad-primary-security-server
+    volumes:
+      - ${ssh_key_dir}/id_rsa:/etc/.ssh/id_rsa
+
+  xroad-db:
+    image: postgres:12
+    container_name: xroad-db
+    command: ["postgres", "-c", "log_statement=all"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    environment:
+      - POSTGRES_PASSWORD=xroad
