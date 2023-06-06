@@ -131,7 +131,7 @@ class DeploymentPipelineStack extends cdk.Stack {
           },
           phases: {
             pre_build: {
-              commands: ["git checkout ${tag}"],
+              commands: [`git checkout ${tag}`],
             },
             build: {
               commands: [`./deploy-${env}.sh`, `./tag-green-${env}.sh`],
