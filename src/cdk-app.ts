@@ -86,6 +86,7 @@ class XroadSecurityServerStack extends cdk.Stack {
             subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
           },
         },
+        storageEncrypted: true,
       }
     );
   }
