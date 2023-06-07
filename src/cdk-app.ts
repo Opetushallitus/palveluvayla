@@ -42,6 +42,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const vpc = this.createVpc();
     const databaseCluster = this.createDatabaseCluster(vpc);
+    const bastionHost = this.createBastionHost(vpc);
+    databaseCluster.connections.allowDefaultPortFrom(bastionHost);
   }
 
   private createVpc() {
@@ -95,6 +97,12 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       },
       storageEncrypted: true,
+    });
+  }
+
+  private createBastionHost(vpc: ec2.Vpc) {
+    return new ec2.BastionHostLinux(this, "BastionHost", {
+      vpc,
     });
   }
 
