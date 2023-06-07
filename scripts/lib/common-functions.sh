@@ -54,9 +54,9 @@ function aws {
 
 function export_aws_credentials {
   local -r env=$1
-  export AWS_PROFILE="oph-palveluvayla-util"
+  export AWS_PROFILE="oph-palveluvayla-${env}"
 
-  info "Checking AWS credentials for env util"
+  info "Checking AWS credentials for env ${env}"
   if ! aws sts get-caller-identity >/dev/null; then
     fatal "AWS credentials are not configured env $env. Aborting."
   fi
