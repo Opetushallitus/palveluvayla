@@ -24,13 +24,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     const inIpAddress = new ec2.CfnEIP(this, "InIpAddress", {
       tags: [{ key: "Name", value: "InIpAddress" }],
     });
-    const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {
-      tags: [{ key: "Name", value: "OutIpAddress" }],
-    });
 
     const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
-    const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
 
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
       zoneName: `${env}.${domain}`,
@@ -44,10 +40,20 @@ class XroadSecurityServerStack extends cdk.Stack {
         target: route53.RecordTarget.fromIpAddresses(inIpAddress.ref),
       }
     );
+    const vpc = this.createVpc();
+    const databaseCluster = this.createDatabaseCluster(vpc);
+  }
+
+  private createVpc() {
+    const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {
+      tags: [{ key: "Name", value: "OutIpAddress" }],
+    });
+
     const natProvider = ec2.NatProvider.gateway({
       eipAllocationIds: [outIpAddress.getAtt("AllocationId").toString()],
     });
-    const vpc = new ec2.Vpc(this, "XroadSecurityServerVpc", {
+
+    return new ec2.Vpc(this, "XroadSecurityServerVpc", {
       subnetConfiguration: [
         {
           name: "Ingress",
@@ -66,29 +72,30 @@ class XroadSecurityServerStack extends cdk.Stack {
       natGateways: 1,
       natGatewayProvider: natProvider,
     });
-    const cluster = new rds.DatabaseCluster(
-      this,
-      "XroadSecurityServerDatabase",
-      {
-        credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
-          secretName: "XroadSecurityDatabaseAdminPassword",
-        }),
-        engine: rds.DatabaseClusterEngine.auroraPostgres({
-          version: rds.AuroraPostgresEngineVersion.VER_12_14,
-        }),
-        instanceProps: {
-          instanceType: ec2.InstanceType.of(
-            ec2.InstanceClass.T4G,
-            ec2.InstanceSize.MEDIUM
-          ),
-          vpc,
-          vpcSubnets: {
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-          },
+  }
+
+  private createDatabaseCluster(vpc: ec2.Vpc) {
+    const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
+
+    return new rds.DatabaseCluster(this, "XroadSecurityServerDatabase", {
+      credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
+        secretName: "XroadSecurityDatabaseAdminPassword",
+      }),
+      engine: rds.DatabaseClusterEngine.auroraPostgres({
+        version: rds.AuroraPostgresEngineVersion.VER_12_14,
+      }),
+      instanceProps: {
+        instanceType: ec2.InstanceType.of(
+          ec2.InstanceClass.T4G,
+          ec2.InstanceSize.MEDIUM
+        ),
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
-        storageEncrypted: true,
-      }
-    );
+      },
+      storageEncrypted: true,
+    });
   }
 
   private hostName(env: string) {
