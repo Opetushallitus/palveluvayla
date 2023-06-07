@@ -1,0 +1,7 @@
+FROM niis/xroad-security-server-sidecar:7.2.2-secondary-fi
+
+CMD mkdir /etc/.ssh && \
+    chmod 755 /etc/.ssh && \
+    echo -n ${SSH_PRIVATE_KEY_BASE64} | base64 --decode > /etc/.ssh/id_rsa && \
+    chmod 644 /etc/.ssh/id_rsa && \
+    /root/entrypoint.sh

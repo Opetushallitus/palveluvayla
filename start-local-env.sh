@@ -20,13 +20,16 @@ function check_requirements {
 function create_secrets {
   info "creating secrets"
   ssh-keygen -f ${tempdir}/id_rsa -t rsa -b 4096 -N '' -q
-  chmod 600 ${tempdir}/id_rsa*
 }
 
 function start_system {
   info "starting system"
-  ssh_key_dir=${tempdir} docker-compose --file ${repo}/docker-compose.yml down || true
-  ssh_key_dir=${tempdir} docker-compose --file ${repo}/docker-compose.yml up --force-recreate
+  local -r public=$(cat ${tempdir}/id_rsa.pub | base64)
+  local -r private=$(cat ${tempdir}/id_rsa | base64)
+  ssh_public_key=${public} ssh_private_key=${private} \
+    docker-compose --file ${repo}/docker-compose.yml down || true
+  ssh_public_key=${public} ssh_private_key=${private} \
+    docker-compose --file ${repo}/docker-compose.yml up --force-recreate --build
 }
 
 function require_docker {
