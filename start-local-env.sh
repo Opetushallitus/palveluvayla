@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -o nounset -o errexit
 
-readonly repo=$( cd "$( dirname "$0" )" && pwd )
+readonly repo=$(cd "$(dirname "$0")" && pwd)
 readonly tempdir=$(mktemp -d)
 trap "rm -rf ${tempdir}" EXIT
-
 
 function main {
   check_requirements
@@ -32,11 +31,11 @@ function start_system {
 
 function require_docker {
   require_command docker
-  docker ps > /dev/null 2>&1 || fatal "Running 'docker ps' failed. Is docker daemon running? Aborting."
+  docker ps >/dev/null 2>&1 || fatal "Running 'docker ps' failed. Is docker daemon running? Aborting."
 }
 
 function require_command {
-  if ! command -v "$1" > /dev/null 2>&1; then
+  if ! command -v "$1" >/dev/null 2>&1; then
     fatal "I require $1 but it's not installed. Aborting."
   fi
 }
@@ -55,7 +54,7 @@ function log {
   local -r message="$2"
   local -r timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-  >&2 echo -e "${timestamp} ${level} ${message}"
+  echo >&2 -e "${timestamp} ${level} ${message}"
 }
 
 main "$@"
