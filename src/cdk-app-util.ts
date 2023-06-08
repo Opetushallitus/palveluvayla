@@ -126,9 +126,6 @@ class DeploymentPipelineStack extends cdk.Stack {
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
-          env: {
-            "git-credential-helper": true,
-          },
           phases: {
             pre_build: {
               commands: [`git checkout ${tag}`],
