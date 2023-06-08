@@ -8,7 +8,7 @@ function main {
 
   case "${env}" in
     "dev" | "qa" | "prod")
-      lcoal -r source_tag=$(source_tag "${env}")
+      local -r source_tag=$(source_tag "${env}")
       tag-green "${source_tag}" "${env}"
       ;;
     *)
