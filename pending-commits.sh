@@ -18,10 +18,10 @@ function print_pending_commits {
   echo "# Commits for dev -> qa"
   log_cmd green-dev...green-qa && echo
 
-  echo "# Commits for origin/master -> dev"
+  echo "# Commits for origin/main-> dev"
   log_cmd origin/main...green-dev && echo
 
-  echo "# Commits for master -> origin/master"
+  echo "# Commits for main -> origin/main"
   log_cmd main...origin/main && echo
 }
 
