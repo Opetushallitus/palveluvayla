@@ -77,8 +77,10 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createDatabaseCluster(vpc: ec2.Vpc) {
-    const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
-
+    const dbAdminName = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/db/admin"
+    );
     return new rds.DatabaseCluster(this, "XroadSecurityServerDatabase", {
       credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
         secretName: "XroadSecurityDatabaseAdminPassword",
