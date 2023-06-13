@@ -49,11 +49,23 @@ class XroadSecurityServerStack extends cdk.Stack {
     const databaseCluster = this.createDatabaseCluster(vpc);
     const bastionHost = this.createBastionHost(vpc);
     databaseCluster.connections.allowDefaultPortFrom(bastionHost);
+    const ecsCluster = this.createEcsCluster(vpc);
+    this.createPrimaryNode(vpc, databaseCluster, bastionHost, ecsCluster);
+  }
 
-    const ecsCluster = new ecs.Cluster(this, "SecurityServer", {
+  private createEcsCluster(vpc: ec2.Vpc) {
+    return new ecs.Cluster(this, "SecurityServer", {
       clusterName: "SecurityServer",
       vpc,
     });
+  }
+
+  private createPrimaryNode(
+    vpc: ec2.Vpc,
+    databaseCluster: rds.DatabaseCluster,
+    bastionHost: ec2.BastionHostLinux,
+    ecsCluster: ecs.Cluster
+  ) {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
