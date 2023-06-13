@@ -46,9 +46,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
-    const databaseCluster = this.createDatabaseCluster(vpc);
     const bastionHost = this.createBastionHost(vpc);
-    databaseCluster.connections.allowDefaultPortFrom(bastionHost);
+    const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
     this.createPrimaryNode(vpc, databaseCluster, bastionHost, ecsCluster);
   }
@@ -190,31 +189,41 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
   }
 
-  private createDatabaseCluster(vpc: ec2.Vpc) {
+  private createDatabaseCluster(
+    vpc: ec2.Vpc,
+    bastionHost: ec2.BastionHostLinux
+  ) {
     const dbAdminName = ssm.StringParameter.valueForStringParameter(
       this,
       "/db/admin"
     );
-    return new rds.DatabaseCluster(this, "XroadSecurityServerDatabase", {
-      credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
-        secretName: "XroadSecurityServerDatabaseCredentials",
-      }),
-      engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_12_14,
-      }),
-      cloudwatchLogsExports: ["postgresql"],
-      instanceProps: {
-        instanceType: ec2.InstanceType.of(
-          ec2.InstanceClass.T4G,
-          ec2.InstanceSize.MEDIUM
-        ),
-        vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+    const cluster = new rds.DatabaseCluster(
+      this,
+      "XroadSecurityServerDatabase",
+      {
+        credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
+          secretName: "XroadSecurityServerDatabaseCredentials",
+        }),
+        engine: rds.DatabaseClusterEngine.auroraPostgres({
+          version: rds.AuroraPostgresEngineVersion.VER_12_14,
+        }),
+        cloudwatchLogsExports: ["postgresql"],
+        instanceProps: {
+          instanceType: ec2.InstanceType.of(
+            ec2.InstanceClass.T4G,
+            ec2.InstanceSize.MEDIUM
+          ),
+          vpc,
+          vpcSubnets: {
+            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          },
         },
-      },
-      storageEncrypted: true,
-    });
+        storageEncrypted: true,
+      }
+    );
+    cluster.connections.allowDefaultPortFrom(bastionHost);
+
+    return cluster;
   }
 
   private createBastionHost(vpc: ec2.Vpc) {
