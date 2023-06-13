@@ -4,6 +4,11 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
+import * as efs from "aws-cdk-lib/aws-efs";
+import * as path from "path";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -44,6 +49,103 @@ class XroadSecurityServerStack extends cdk.Stack {
     const databaseCluster = this.createDatabaseCluster(vpc);
     const bastionHost = this.createBastionHost(vpc);
     databaseCluster.connections.allowDefaultPortFrom(bastionHost);
+
+    const ecsCluster = new ecs.Cluster(this, "SecurityServer", {
+      clusterName: "SecurityServer",
+      vpc,
+    });
+    const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
+      directory: path.join(__dirname, "../security-server-nodes"),
+      file: "Dockerfile.primary-node",
+    });
+    const taskDefinition = new ecs.FargateTaskDefinition(
+      this,
+      "PrimaryNodeTask",
+      {
+        cpu: 1024,
+        memoryLimitMiB: 4096,
+      }
+    );
+    const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
+      vpc,
+      encrypted: true,
+    });
+    const volume = {
+      name: "XroadConfiguration",
+      efsVolumeConfiguration: {
+        fileSystemId: fileSystem.fileSystemId,
+        transitEncryption: "ENABLED",
+      },
+    };
+    taskDefinition.addVolume(volume);
+
+    const xroadAdminCredentials = new secretsmanager.Secret(
+      this,
+      "XroadAdminCredentials",
+      {
+        secretName: "XroadSecurityServerAdminCredentials",
+        generateSecretString: {
+          secretStringTemplate: JSON.stringify({
+            username: ssm.StringParameter.valueFromLookup(this, "/xroad/admin"),
+          }),
+          generateStringKey: "password",
+        },
+      }
+    );
+    const xroadTokenPin = new secretsmanager.Secret(this, "XroadTokenPin", {
+      secretName: "XroadTokenPin",
+    });
+    const container = taskDefinition.addContainer("PrimaryNodeContainer", {
+      image: ecs.ContainerImage.fromDockerImageAsset(asset),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
+      environment: {
+        XROAD_LOG_LEVEL: "ALL",
+        XROAD_DB_HOST: cdk.Token.asString(
+          databaseCluster.clusterEndpoint.hostname
+        ),
+        XROAD_DB_PORT: cdk.Token.asString(databaseCluster.clusterEndpoint.port),
+      },
+      secrets: {
+        XROAD_DB_PWD: ecs.Secret.fromSecretsManager(
+          databaseCluster.secret!,
+          "password"
+        ),
+        XROAD_ADMIN_USER: ecs.Secret.fromSecretsManager(
+          xroadAdminCredentials,
+          "username"
+        ),
+        XROAD_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
+          xroadAdminCredentials,
+          "password"
+        ),
+        XROAD_TOKEN_PIN: ecs.Secret.fromSecretsManager(xroadTokenPin),
+      },
+      portMappings: [
+        {
+          containerPort: 4000,
+          hostPort: 4000,
+        },
+      ],
+    });
+    container.addMountPoints({
+      containerPath: "/etc/xroad",
+      sourceVolume: volume.name,
+      readOnly: false,
+    });
+
+    const service = new ecs.FargateService(this, "PrimaryNodeService", {
+      cluster: ecsCluster,
+      taskDefinition,
+      desiredCount: 1,
+      enableExecuteCommand: true,
+    });
+    fileSystem.connections.allowDefaultPortFrom(service);
+    databaseCluster.connections.allowDefaultPortFrom(service);
+    service.connections.allowFrom(
+      bastionHost,
+      ec2.Port.tcp(4000),
+      "Allow access to admin web app"
+    );
   }
 
   private createVpc() {
