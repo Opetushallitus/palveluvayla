@@ -88,6 +88,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.VER_12_14,
       }),
+      cloudwatchLogsExports: ["postgresql"],
       instanceProps: {
         instanceType: ec2.InstanceType.of(
           ec2.InstanceClass.T4G,
