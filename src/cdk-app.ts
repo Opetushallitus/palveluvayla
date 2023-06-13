@@ -83,7 +83,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     return new rds.DatabaseCluster(this, "XroadSecurityServerDatabase", {
       credentials: rds.Credentials.fromGeneratedSecret(dbAdminName, {
-        secretName: "XroadSecurityDatabaseAdminPassword",
+        secretName: "XroadSecurityServerDatabaseCredentials",
       }),
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.VER_12_14,
