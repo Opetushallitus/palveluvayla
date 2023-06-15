@@ -44,7 +44,17 @@ function deploy_env {
     export CDK_DEPLOY_TARGET_ACCOUNT=${accountId}
     export CDK_DEPLOY_TARGET_REGION=${region}
   fi
+  login_to_docker_if_possible
   npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
+}
+
+function login_to_docker_if_possible {
+  if [ -n "${DOCKER_USERNAME:-}" ] && [ -n "${DOCKER_PASSWORD:-}" ]; then
+    info "Logging in to dockerhub"
+    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+  else
+    info "Not logging into dockerhub"
+  fi
 }
 
 function bootstrap_cdk {

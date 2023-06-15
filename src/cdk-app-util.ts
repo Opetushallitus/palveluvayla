@@ -123,7 +123,16 @@ class DeploymentPipelineStack extends cdk.Stack {
             type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
             value: "/github/deployment_key",
           },
+          DOCKER_USERNAME: {
+            type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+            value: `/docker/credentials/${env}:username`,
+          },
+          DOCKER_PASSWORD: {
+            type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+            value: `/docker/credentials/${env}:password`,
+          },
         },
+
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
           phases: {
