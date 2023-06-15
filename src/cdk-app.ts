@@ -157,6 +157,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       ec2.Port.tcp(4000),
       "Allow access to admin web app"
     );
+    service.connections.allowFrom(
+      bastionHost,
+      ec2.Port.tcp(8443),
+      "Allow access to the proxy"
+    );
   }
 
   private createVpc() {
