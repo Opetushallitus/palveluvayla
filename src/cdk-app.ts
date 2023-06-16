@@ -51,12 +51,28 @@ class XroadSecurityServerStack extends cdk.Stack {
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
+    const sshKeyPair = this.lookupSshKeyPair();
+    const secondaryNodes = this.createSecondaryNodes(
+      databaseCluster,
+      ecsCluster,
+      sshKeyPair
+    );
     this.createPrimaryNode(
       vpc,
       databaseCluster,
       bastionHost,
       ecsCluster,
-      namespace
+      namespace,
+      sshKeyPair,
+      secondaryNodes
+    );
+  }
+
+  private lookupSshKeyPair() {
+    return secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "XroadSshKeyPair",
+      "xroad_ssh_key_pair"
     );
   }
 
@@ -83,7 +99,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     databaseCluster: rds.DatabaseCluster,
     bastionHost: ec2.BastionHostLinux,
     ecsCluster: ecs.Cluster,
-    namespace: servicediscovery.PrivateDnsNamespace
+    namespace: servicediscovery.PrivateDnsNamespace,
+    sshKeyPair: secretsmanager.ISecret,
+    secondaryNodes: ecs.FargateService
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -150,6 +168,10 @@ class XroadSecurityServerStack extends cdk.Stack {
           "password"
         ),
         XROAD_TOKEN_PIN: ecs.Secret.fromSecretsManager(xroadTokenPin),
+        SSH_PUBLIC_KEY_BASE64: ecs.Secret.fromSecretsManager(
+          sshKeyPair,
+          "public_key_base64"
+        ),
       },
       portMappings: [
         {
@@ -179,6 +201,11 @@ class XroadSecurityServerStack extends cdk.Stack {
     fileSystem.connections.allowDefaultPortFrom(ecsService);
     databaseCluster.connections.allowDefaultPortFrom(ecsService);
     ecsService.connections.allowFrom(
+      secondaryNodes,
+      ec2.Port.tcp(22),
+      "Allow SSH access from secondary nodes for rsync"
+    );
+    ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(4000),
       "Allow access to admin web app"
@@ -188,6 +215,72 @@ class XroadSecurityServerStack extends cdk.Stack {
       ec2.Port.tcp(8443),
       "Allow access to the proxy"
     );
+    ecsService.connections.allowFrom(
+      bastionHost,
+      ec2.Port.tcp(8080),
+      "Allow access to the proxy"
+    );
+  }
+
+  private createSecondaryNodes(
+    databaseCluster: rds.DatabaseCluster,
+    ecsCluster: ecs.Cluster,
+    sshKeyPair: secretsmanager.ISecret
+  ) {
+    const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
+      directory: path.join(__dirname, "../security-server-nodes"),
+      file: "Dockerfile.secondary-node",
+    });
+    const taskDefinition = new ecs.FargateTaskDefinition(
+      this,
+      "SecondaryNodeTask",
+      {
+        cpu: 1024,
+        memoryLimitMiB: 4096,
+      }
+    );
+    const container = taskDefinition.addContainer("PrimaryNodeContainer", {
+      image: ecs.ContainerImage.fromDockerImageAsset(asset),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
+      environment: {
+        XROAD_LOG_LEVEL: "ALL",
+        XROAD_DB_HOST: cdk.Token.asString(
+          databaseCluster.clusterEndpoint.hostname
+        ),
+        XROAD_DB_PORT: cdk.Token.asString(databaseCluster.clusterEndpoint.port),
+        XROAD_PRIMARY_DNS: "primary-node.security-server",
+      },
+      secrets: {
+        XROAD_DB_PWD: ecs.Secret.fromSecretsManager(
+          databaseCluster.secret!,
+          "password"
+        ),
+        SSH_PRIVATE_KEY_BASE64: ecs.Secret.fromSecretsManager(
+          sshKeyPair,
+          "private_key_base64"
+        ),
+      },
+      portMappings: [
+        {
+          containerPort: 5500,
+          hostPort: 5500,
+        },
+        {
+          containerPort: 5577,
+          hostPort: 5577,
+        },
+      ],
+    });
+
+    const service = new ecs.FargateService(this, "SecondaryNodeService", {
+      cluster: ecsCluster,
+      taskDefinition,
+      desiredCount: 2,
+      enableExecuteCommand: true,
+    });
+    databaseCluster.connections.allowDefaultPortFrom(service);
+
+    return service;
   }
 
   private createVpc() {
