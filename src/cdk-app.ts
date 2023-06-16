@@ -9,6 +9,7 @@ import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as efs from "aws-cdk-lib/aws-efs";
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -49,7 +50,14 @@ class XroadSecurityServerStack extends cdk.Stack {
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
-    this.createPrimaryNode(vpc, databaseCluster, bastionHost, ecsCluster);
+    const namespace = this.createNamespace(vpc);
+    this.createPrimaryNode(
+      vpc,
+      databaseCluster,
+      bastionHost,
+      ecsCluster,
+      namespace
+    );
   }
 
   private createEcsCluster(vpc: ec2.Vpc) {
@@ -59,11 +67,23 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
   }
 
+  private createNamespace(vpc: ec2.Vpc) {
+    return new servicediscovery.PrivateDnsNamespace(
+      this,
+      "SecurityServerNamespace",
+      {
+        name: "security-server",
+        vpc,
+      }
+    );
+  }
+
   private createPrimaryNode(
     vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
     bastionHost: ec2.BastionHostLinux,
-    ecsCluster: ecs.Cluster
+    ecsCluster: ecs.Cluster,
+    namespace: servicediscovery.PrivateDnsNamespace
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -144,20 +164,26 @@ class XroadSecurityServerStack extends cdk.Stack {
       readOnly: false,
     });
 
-    const service = new ecs.FargateService(this, "PrimaryNodeService", {
+    const ecsService = new ecs.FargateService(this, "PrimaryNodeService", {
       cluster: ecsCluster,
       taskDefinition,
       desiredCount: 1,
       enableExecuteCommand: true,
+      cloudMapOptions: {
+        name: "primary-node",
+        cloudMapNamespace: namespace,
+        dnsRecordType: servicediscovery.DnsRecordType.A,
+        dnsTtl: cdk.Duration.seconds(10),
+      },
     });
-    fileSystem.connections.allowDefaultPortFrom(service);
-    databaseCluster.connections.allowDefaultPortFrom(service);
-    service.connections.allowFrom(
+    fileSystem.connections.allowDefaultPortFrom(ecsService);
+    databaseCluster.connections.allowDefaultPortFrom(ecsService);
+    ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(4000),
       "Allow access to admin web app"
     );
-    service.connections.allowFrom(
+    ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(8443),
       "Allow access to the proxy"
