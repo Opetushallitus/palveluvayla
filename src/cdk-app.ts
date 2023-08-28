@@ -239,9 +239,9 @@ class XroadSecurityServerStack extends cdk.Stack {
         memoryLimitMiB: 4096,
       }
     );
-    const container = taskDefinition.addContainer("PrimaryNodeContainer", {
+    const container = taskDefinition.addContainer("SecondaryNodeContainer", {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "SecondaryNode" }),
       environment: {
         XROAD_LOG_LEVEL: "ALL",
         XROAD_DB_HOST: cdk.Token.asString(
