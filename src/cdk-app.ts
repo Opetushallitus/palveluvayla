@@ -1,15 +1,21 @@
 import * as cdk from "aws-cdk-lib";
 import * as constructs from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as efs from "aws-cdk-lib/aws-efs";
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
+import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
+import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+import * as apigatewayv2_authorizers from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -47,16 +53,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
+    const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
+    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
+    const apigwAuthorizer = this.createApiGatewayAuthorizer(props.env!);
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
       ecsCluster,
+      serviceSecurityGroup,
       sshKeyPair
     );
+    const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
+    this.createApiGateway(vpcLink, listener, apigwAuthorizer);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -66,6 +78,95 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes
     );
+  }
+
+  private createApiGatewayNlb(vpc: ec2.Vpc, service: ecs.FargateService) {
+    const apigwNlb = new elbv2.NetworkLoadBalancer(this, "ApiGatewayNlb", {
+      vpc: vpc,
+      internetFacing: false,
+    });
+    const listener = apigwNlb.addListener("ApiGatewayListener", {
+      port: 8443,
+    });
+    listener.addTargets("ApiGatewayTarget", {
+      port: 8443,
+      targets: [service],
+    });
+    return { apigwNlb, listener };
+  }
+
+  private createApiGatewayAuthorizer(env: cdk.Environment) {
+    const fn = new lambda.Function(this, "ApiGatewayAuthorizer", {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../lambda/apigw-authorizer-lambda")
+      ),
+    });
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        effect: iam.Effect.ALLOW,
+        resources: [
+          `arn:aws:ssm:${env.region}:${env.account}:parameter/lambda/*`,
+        ],
+      })
+    );
+    return fn;
+  }
+
+  private createServiceSecurityGroup(vpc: ec2.Vpc) {
+    const serviceSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "PalveluvaylaServiceSecurityGroup",
+      {
+        vpc: vpc,
+        allowAllOutbound: true,
+        description: "Allow traffic to Palveluvayla HTTP API service.",
+        securityGroupName: "PalveluvaylaServiceSecurityGroup",
+      }
+    );
+
+    serviceSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(8443),
+      "palveluvayla https proxy"
+    );
+
+    return serviceSecurityGroup;
+  }
+
+  private createApiGateway(
+    vpcLink: apigatewayv2.VpcLink,
+    listener: elbv2.NetworkListener,
+    authorizer: lambda.Function
+  ) {
+    const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
+      "PalveluvaylaNlbIntegration",
+      listener,
+      {
+        vpcLink: vpcLink,
+      }
+    );
+    const defaultAuthorizer = new apigatewayv2_authorizers.HttpLambdaAuthorizer(
+      "PalveluvaylaApiKeyAuthorizer",
+      authorizer,
+      {
+        responseTypes: [apigatewayv2_authorizers.HttpLambdaResponseType.SIMPLE],
+      }
+    );
+    const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
+      defaultIntegration: defaultIntegration,
+      defaultAuthorizer: defaultAuthorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/r1/FI/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1/*",
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: defaultIntegration,
+    });
+
+    return httpApi;
   }
 
   private lookupSshKeyPair() {
@@ -225,6 +326,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createSecondaryNodes(
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
+    securityGroup: ec2.SecurityGroup,
     sshKeyPair: secretsmanager.ISecret
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
@@ -269,6 +371,10 @@ class XroadSecurityServerStack extends cdk.Stack {
           containerPort: 5577,
           hostPort: 5577,
         },
+        {
+          containerPort: 8443,
+          hostPort: 8443,
+        },
       ],
     });
 
@@ -276,6 +382,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       cluster: ecsCluster,
       taskDefinition,
       desiredCount: 2,
+      securityGroups: [securityGroup],
       enableExecuteCommand: true,
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
@@ -292,7 +399,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       eipAllocationIds: [outIpAddress.getAtt("AllocationId").toString()],
     });
 
-    return new ec2.Vpc(this, "XroadSecurityServerVpc", {
+    const vpc = new ec2.Vpc(this, "XroadSecurityServerVpc", {
       subnetConfiguration: [
         {
           name: "Ingress",
@@ -310,6 +417,21 @@ class XroadSecurityServerStack extends cdk.Stack {
       maxAzs: 2,
       natGateways: 1,
       natGatewayProvider: natProvider,
+    });
+
+    vpc.addInterfaceEndpoint("ApiGatewayEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+      privateDnsEnabled: true,
+      open: true,
+    });
+
+    return vpc;
+  }
+
+  private createVpcLink(vpc: ec2.Vpc) {
+    return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
+      vpc: vpc,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
     });
   }
 
