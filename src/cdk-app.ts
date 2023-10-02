@@ -53,13 +53,13 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
-    const vpcLink = this.createVpcLink(vpc);
+    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
+    const vpcLink = this.createVpcLink(vpc, serviceSecurityGroup);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
-    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
     const apigwAuthorizer = this.createApiGatewayAuthorizer(props.env!);
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
@@ -428,10 +428,11 @@ class XroadSecurityServerStack extends cdk.Stack {
     return vpc;
   }
 
-  private createVpcLink(vpc: ec2.Vpc) {
+  private createVpcLink(vpc: ec2.Vpc, securityGroup: ec2.SecurityGroup) {
     return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
       vpc: vpc,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      subnets: { subnets: vpc.privateSubnets },
+      securityGroups: [securityGroup],
     });
   }
 
