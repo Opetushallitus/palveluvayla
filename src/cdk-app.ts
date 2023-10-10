@@ -440,7 +440,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     vpc: ec2.Vpc,
     bastionHost: ec2.BastionHostLinux
   ) {
-    const dbAdminName = ssm.StringParameter.valueForStringParameter(
+    const dbAdminName = ssm.StringParameter.valueFromLookup(
       this,
       "/db/admin"
     );
