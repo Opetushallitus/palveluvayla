@@ -130,7 +130,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
 
     httpApi.addRoutes({
-      path: "/r1/FI/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1/*",
+      path: "/r1/FI/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1",
       methods: [apigatewayv2.HttpMethod.GET],
       integration: defaultIntegration,
     });
