@@ -1,7 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as constructs from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as rds from "aws-cdk-lib/aws-rds";
@@ -9,13 +8,12 @@ import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as efs from "aws-cdk-lib/aws-efs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
-import * as apigatewayv2_authorizers from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
+
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -60,7 +58,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
-    const apigwAuthorizer = this.createApiGatewayAuthorizer(props.env!);
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
       ecsCluster,
@@ -68,7 +65,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
-    this.createApiGateway(vpcLink, listener, apigwAuthorizer);
+    this.createApiGateway(vpcLink, listener);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -90,29 +87,10 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     listener.addTargets("ApiGatewayTarget", {
       port: 8443,
+
       targets: [service],
     });
     return { apigwNlb, listener };
-  }
-
-  private createApiGatewayAuthorizer(env: cdk.Environment) {
-    const fn = new lambda.Function(this, "ApiGatewayAuthorizer", {
-      runtime: lambda.Runtime.NODEJS_18_X,
-      handler: "index.handler",
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, "../lambda/apigw-authorizer-lambda")
-      ),
-    });
-    fn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["ssm:GetParameter"],
-        effect: iam.Effect.ALLOW,
-        resources: [
-          `arn:aws:ssm:${env.region}:${env.account}:parameter/lambda/*`,
-        ],
-      })
-    );
-    return fn;
   }
 
   private createServiceSecurityGroup(vpc: ec2.Vpc) {
@@ -139,7 +117,6 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
     listener: elbv2.NetworkListener,
-    authorizer: lambda.Function
   ) {
     const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
       "PalveluvaylaNlbIntegration",
@@ -148,16 +125,8 @@ class XroadSecurityServerStack extends cdk.Stack {
         vpcLink: vpcLink,
       }
     );
-    const defaultAuthorizer = new apigatewayv2_authorizers.HttpLambdaAuthorizer(
-      "PalveluvaylaApiKeyAuthorizer",
-      authorizer,
-      {
-        responseTypes: [apigatewayv2_authorizers.HttpLambdaResponseType.SIMPLE],
-      }
-    );
     const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
       defaultIntegration: defaultIntegration,
-      defaultAuthorizer: defaultAuthorizer,
     });
 
     httpApi.addRoutes({
