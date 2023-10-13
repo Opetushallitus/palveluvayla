@@ -8,12 +8,14 @@ import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as efs from "aws-cdk-lib/aws-efs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
+import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
-
 
 class CdkApp extends cdk.App {
   constructor() {
@@ -116,7 +118,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
-    listener: elbv2.NetworkListener,
+    listener: elbv2.NetworkListener
   ) {
     const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
       "PalveluvaylaNlbIntegration",
@@ -134,6 +136,27 @@ class XroadSecurityServerStack extends cdk.Stack {
       methods: [apigatewayv2.HttpMethod.GET],
       integration: defaultIntegration,
     });
+
+    const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
+    const logGroup = new logs.LogGroup(httpApi, "AccessLogs", {
+      retention: 90,
+    });
+    stage.accessLogSettings = {
+      destinationArn: logGroup.logGroupArn,
+      format: JSON.stringify({
+        requestId: "$context.requestId",
+        userAgent: "$context.identity.userAgent",
+        sourceIp: "$context.identity.sourceIp",
+        requestTime: "$context.requestTime",
+        httpMethod: "$context.httpMethod",
+        path: "$context.path",
+        status: "$context.status",
+        responseLength: "$context.responseLength",
+        integrationError: "$context.integration.error",
+        apiGatewayError: "$context.error.message",
+      }),
+    };
+    logGroup.grantWrite(new iam.ServicePrincipal("apigateway.amazonaws.com"));
 
     return httpApi;
   }
@@ -401,10 +424,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     vpc: ec2.Vpc,
     bastionHost: ec2.BastionHostLinux
   ) {
-    const dbAdminName = ssm.StringParameter.valueFromLookup(
-      this,
-      "/db/admin"
-    );
+    const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
     const cluster = new rds.DatabaseCluster(
       this,
       "XroadSecurityServerDatabase",
