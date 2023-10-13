@@ -133,7 +133,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     httpApi.addRoutes({
       path: "/r1/FI/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1",
-      methods: [apigatewayv2.HttpMethod.GET],
+      methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
       integration: defaultIntegration,
     });
 
@@ -154,6 +154,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         responseLength: "$context.responseLength",
         integrationError: "$context.integration.error",
         apiGatewayError: "$context.error.message",
+        authorizerError: "$context.authorizer.error",
       }),
     };
     logGroup.grantWrite(new iam.ServicePrincipal("apigateway.amazonaws.com"));
