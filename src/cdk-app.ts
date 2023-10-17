@@ -17,6 +17,13 @@ import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 
+type EnvName = "dev" | "qa" | "prod";
+const palveluvaylaEnv: { [k in EnvName]: string } = {
+  dev: "FI-DEV",
+  qa: "FI-TEST",
+  prod: "FI",
+};
+
 class CdkApp extends cdk.App {
   constructor() {
     super();
@@ -37,7 +44,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       tags: [{ key: "Name", value: "InIpAddress" }],
     });
 
-    const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
+    const env = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/name"
+    ) as EnvName;
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
 
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
@@ -119,7 +129,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
     listener: elbv2.NetworkListener,
-    env: string
+    env: EnvName
   ) {
     const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
       "PalveluvaylaNlbIntegration",
@@ -132,9 +142,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       defaultIntegration: defaultIntegration,
     });
 
-    const palveluvaylaEnv = env === "prod" ? "FI" : "FI-TEST";
     httpApi.addRoutes({
-      path: `/r1/${palveluvaylaEnv}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
+      path: `/r1/${palveluvaylaEnv[env]}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
       methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
       integration: defaultIntegration,
     });
