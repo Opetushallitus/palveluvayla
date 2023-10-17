@@ -67,7 +67,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
-    this.createApiGateway(vpcLink, listener);
+    this.createApiGateway(vpcLink, listener, env);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -118,7 +118,8 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
-    listener: elbv2.NetworkListener
+    listener: elbv2.NetworkListener,
+    env: string
   ) {
     const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
       "PalveluvaylaNlbIntegration",
@@ -131,8 +132,9 @@ class XroadSecurityServerStack extends cdk.Stack {
       defaultIntegration: defaultIntegration,
     });
 
+    const palveluvaylaEnv = env === "prod" ? "FI" : "FI-TEST";
     httpApi.addRoutes({
-      path: "/r1/FI/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1",
+      path: `/r1/${palveluvaylaEnv}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
       methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
       integration: defaultIntegration,
     });
