@@ -17,10 +17,7 @@ import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 
-const envs = ["dev", "qa", "prod"] as const;
-type EnvName = (typeof envs)[number];
-const isEnvName = (s: any): s is EnvName => envs.includes(s);
-
+type EnvName = "dev" | "qa" | "prod";
 const palveluvaylaEnv: { [k in EnvName]: string } = {
   dev: "FI-DEV",
   qa: "FI-TEST",
@@ -47,7 +44,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       tags: [{ key: "Name", value: "InIpAddress" }],
     });
 
-    const env = this.getEnv();
+    const env = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/name"
+    ) as EnvName;
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
 
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
@@ -87,14 +87,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes
     );
-  }
-
-  private getEnv(): EnvName {
-    const env = ssm.StringParameter.valueFromLookup(this, "/env/name");
-    if (!isEnvName(env)) {
-      throw Error(`invalid env: ${env}`);
-    }
-    return env;
   }
 
   private createApiGatewayNlb(vpc: ec2.Vpc, service: ecs.FargateService) {
@@ -480,7 +472,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
   }
 
-  private hostName(env: EnvName) {
+  private hostName(env: string) {
     const part = env == "qa" ? "test" : env;
     return `oph${part}01`;
   }
