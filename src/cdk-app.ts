@@ -76,11 +76,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       serviceSecurityGroup,
       sshKeyPair
     );
-    const { listener } = this.createApiGatewayNlb(
-      vpc,
-      secondaryNodes,
-      serviceSecurityGroup
-    );
+    const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
     this.createApiGateway(vpcLink, listener, env);
     this.createPrimaryNode(
       vpc,
@@ -93,27 +89,19 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
   }
 
-  private createApiGatewayNlb(
-    vpc: ec2.Vpc,
-    service: ecs.FargateService,
-    securityGroup: ec2.SecurityGroup
-  ) {
+  private createApiGatewayNlb(vpc: ec2.Vpc, service: ecs.FargateService) {
     const apigwNlb = new elbv2.NetworkLoadBalancer(this, "ApiGatewayNlb", {
       vpc: vpc,
       internetFacing: false,
-      crossZoneEnabled: true,
     });
     const listener = apigwNlb.addListener("ApiGatewayListener", {
       port: 8443,
     });
     listener.addTargets("ApiGatewayTarget", {
       port: 8443,
+
       targets: [service],
     });
-    const cnfNlb = apigwNlb.node.defaultChild as elbv2.CfnLoadBalancer;
-    cnfNlb.addPropertyOverride("SecurityGroups", [
-      securityGroup.securityGroupId,
-    ]);
     return { apigwNlb, listener };
   }
 
@@ -394,7 +382,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       enableExecuteCommand: true,
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
-    service.connections.allowFrom(securityGroup, ec2.Port.tcp(8443));
 
     return service;
   }
