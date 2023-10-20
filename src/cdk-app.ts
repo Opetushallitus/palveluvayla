@@ -64,7 +64,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const vpc = this.createVpc();
     const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
-    const vpcLink = this.createVpcLink(vpc, serviceSecurityGroup);
+    const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
@@ -424,10 +424,15 @@ class XroadSecurityServerStack extends cdk.Stack {
     return vpc;
   }
 
-  private createVpcLink(vpc: ec2.Vpc, securityGroup: ec2.SecurityGroup) {
+  private createVpcLink(vpc: ec2.Vpc) {
+    const securityGroup = new ec2.SecurityGroup(this, "allow-in", {
+      vpc: vpc,
+      allowAllOutbound: true,
+    });
+    securityGroup.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(8443));
     return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
       vpc: vpc,
-      subnets: { subnets: vpc.privateSubnets },
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [securityGroup],
     });
   }
