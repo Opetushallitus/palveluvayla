@@ -63,6 +63,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
+    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
     const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
@@ -72,6 +73,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
       ecsCluster,
+      serviceSecurityGroup,
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
@@ -92,29 +94,36 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpc: vpc,
       internetFacing: false,
     });
-    const targetGroup = new elbv2.NetworkTargetGroup(
+    const listener = apigwNlb.addListener("ApiGatewayListener", {
+      port: 8443,
+    });
+    listener.addTargets("ApiGatewayTarget", {
+      port: 8443,
+
+      targets: [service],
+    });
+    return { apigwNlb, listener };
+  }
+
+  private createServiceSecurityGroup(vpc: ec2.Vpc) {
+    const serviceSecurityGroup = new ec2.SecurityGroup(
       this,
-      "PalveluvaylaSecondaryNodeTarget",
+      "PalveluvaylaServiceSecurityGroup",
       {
-        targetGroupName: "PalveluvaylaSecondaryNodeTarget",
-        port: 8080,
         vpc: vpc,
-        protocol: elbv2.Protocol.TCP_UDP,
-        targetType: elbv2.TargetType.IP,
-        healthCheck: {
-          protocol: elbv2.Protocol.TCP,
-          port: "8443",
-        },
+        allowAllOutbound: true,
+        description: "Allow traffic to Palveluvayla HTTP API service.",
+        securityGroupName: "PalveluvaylaServiceSecurityGroup",
       }
     );
-    const listener = apigwNlb.addListener("ApiGatewayListener", {
-      port: 8080,
-    });
-    listener.addAction("listener-action", {
-      action: elbv2.NetworkListenerAction.forward([targetGroup]),
-    });
-    service.attachToNetworkTargetGroup(targetGroup);
-    return { apigwNlb, listener };
+
+    serviceSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(8443),
+      "palveluvayla https proxy"
+    );
+
+    return serviceSecurityGroup;
   }
 
   private createApiGateway(
@@ -321,6 +330,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createSecondaryNodes(
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
+    securityGroup: ec2.SecurityGroup,
     sshKeyPair: secretsmanager.ISecret
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
@@ -358,10 +368,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
       portMappings: [
         {
-          containerPort: 8080,
-          hostPort: 8080,
-        },
-        {
           containerPort: 8443,
           hostPort: 8443,
         },
@@ -372,6 +378,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       cluster: ecsCluster,
       taskDefinition,
       desiredCount: 2,
+      securityGroups: [securityGroup],
       enableExecuteCommand: true,
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
@@ -418,9 +425,15 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createVpcLink(vpc: ec2.Vpc) {
+    const securityGroup = new ec2.SecurityGroup(this, "allow-in", {
+      vpc: vpc,
+      allowAllOutbound: true,
+    });
+    securityGroup.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(8443));
     return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
       vpc: vpc,
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [securityGroup],
     });
   }
 
@@ -464,7 +477,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
   }
 
-  private hostName(env: EnvName) {
+  private hostName(env: string) {
     const part = env == "qa" ? "test" : env;
     return `oph${part}01`;
   }
