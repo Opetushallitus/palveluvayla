@@ -400,15 +400,9 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createVpcLink(vpc: ec2.Vpc) {
-    const securityGroup = new ec2.SecurityGroup(this, "PalveluvaylaVpcLinkSG", {
-      vpc: vpc,
-      allowAllOutbound: true,
-    });
-    securityGroup.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(8443));
     return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
       vpc: vpc,
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [securityGroup],
     });
   }
 
