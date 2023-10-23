@@ -99,7 +99,8 @@ class XroadSecurityServerStack extends cdk.Stack {
         targetGroupName: "PalveluvaylaSecondaryNodeTarget",
         port: 8080,
         vpc: vpc,
-        protocol: elbv2.Protocol.TCP,
+        protocol: elbv2.Protocol.TCP_UDP,
+        targetType: elbv2.TargetType.IP,
         healthCheck: {
           protocol: elbv2.Protocol.TCP,
           port: "8443",
