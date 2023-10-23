@@ -92,13 +92,27 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpc: vpc,
       internetFacing: false,
     });
+    const targetGroup = new elbv2.NetworkTargetGroup(
+      this,
+      "PalveluvaylaSecondaryNodeTarget",
+      {
+        targetGroupName: "PalveluvaylaSecondaryNodeTarget",
+        port: 8080,
+        vpc: vpc,
+        protocol: elbv2.Protocol.TCP,
+        healthCheck: {
+          protocol: elbv2.Protocol.TCP,
+          port: "8443",
+        },
+      }
+    );
     const listener = apigwNlb.addListener("ApiGatewayListener", {
       port: 8080,
     });
-    listener.addTargets("ApiGatewayTarget", {
-      port: 8080,
-      targets: [service],
+    listener.addAction("listener-action", {
+      action: elbv2.NetworkListenerAction.forward([targetGroup]),
     });
+    service.attachToNetworkTargetGroup(targetGroup);
     return { apigwNlb, listener };
   }
 
@@ -345,6 +359,10 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: 8080,
           hostPort: 8080,
+        },
+        {
+          containerPort: 8443,
+          hostPort: 8443,
         },
       ],
     });
