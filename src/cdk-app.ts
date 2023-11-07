@@ -16,6 +16,7 @@ import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+import {HttpIamAuthorizer} from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 
 type EnvName = "dev" | "qa" | "prod";
 const palveluvaylaEnv: { [k in EnvName]: string } = {
@@ -138,8 +139,12 @@ class XroadSecurityServerStack extends cdk.Stack {
         vpcLink: vpcLink,
       }
     );
+
+    const authorizer = new HttpIamAuthorizer()
+
     const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
       defaultIntegration: defaultIntegration,
+      defaultAuthorizer: authorizer
     });
 
     httpApi.addRoutes({
