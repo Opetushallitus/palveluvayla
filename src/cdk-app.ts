@@ -77,6 +77,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       databaseCluster,
       ecsCluster,
       serviceSecurityGroup,
+      xroadAdminCredentials,
+      xroadTokenPin,
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
@@ -344,6 +346,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
     securityGroup: ec2.SecurityGroup,
+    xroadAdminCredentials: secretsmanager.ISecret,
+    xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
@@ -374,6 +378,15 @@ class XroadSecurityServerStack extends cdk.Stack {
           databaseCluster.secret!,
           "password"
         ),
+        XROAD_ADMIN_USER: ecs.Secret.fromSecretsManager(
+          xroadAdminCredentials,
+          "username"
+        ),
+        XROAD_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
+          xroadAdminCredentials,
+          "password"
+        ),
+        XROAD_TOKEN_PIN: ecs.Secret.fromSecretsManager(xroadTokenPin),
         SSH_PRIVATE_KEY_BASE64: ecs.Secret.fromSecretsManager(
           sshKeyPair,
           "private_key_base64"
