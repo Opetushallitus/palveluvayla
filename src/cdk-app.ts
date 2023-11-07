@@ -63,6 +63,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
+    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
     const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
@@ -72,6 +73,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
       ecsCluster,
+      serviceSecurityGroup,
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
@@ -101,6 +103,27 @@ class XroadSecurityServerStack extends cdk.Stack {
       targets: [service],
     });
     return { apigwNlb, listener };
+  }
+
+  private createServiceSecurityGroup(vpc: ec2.Vpc) {
+    const serviceSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "PalveluvaylaServiceSecurityGroup",
+      {
+        vpc: vpc,
+        allowAllOutbound: true,
+        description: "Allow traffic to Palveluvayla HTTP API service.",
+        securityGroupName: "PalveluvaylaServiceSecurityGroup",
+      }
+    );
+
+    serviceSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(8443),
+      "palveluvayla https proxy"
+    );
+
+    return serviceSecurityGroup;
   }
 
   private createApiGateway(
@@ -307,6 +330,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createSecondaryNodes(
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
+    securityGroup: ec2.SecurityGroup,
     sshKeyPair: secretsmanager.ISecret
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
@@ -354,6 +378,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       cluster: ecsCluster,
       taskDefinition,
       desiredCount: 2,
+      securityGroups: [securityGroup],
       enableExecuteCommand: true,
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
@@ -400,9 +425,15 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createVpcLink(vpc: ec2.Vpc) {
+    const securityGroup = new ec2.SecurityGroup(this, "allow-in", {
+      vpc: vpc,
+      allowAllOutbound: true,
+    });
+    securityGroup.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(8443));
     return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
       vpc: vpc,
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [securityGroup],
     });
   }
 
