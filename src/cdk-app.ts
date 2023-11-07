@@ -71,6 +71,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
+    const xroadAdminCredentials = this.createXroadAdminCredentials();
+    const xroadTokenPin = this.createXroadTokenPin();
     const secondaryNodes = this.createSecondaryNodes(
       databaseCluster,
       ecsCluster,
@@ -85,9 +87,29 @@ class XroadSecurityServerStack extends cdk.Stack {
       bastionHost,
       ecsCluster,
       namespace,
+      xroadAdminCredentials,
+      xroadTokenPin,
       sshKeyPair,
       secondaryNodes
     );
+  }
+
+  private createXroadTokenPin() {
+    return new secretsmanager.Secret(this, "XroadTokenPin", {
+      secretName: "XroadTokenPin",
+    });
+  }
+
+  private createXroadAdminCredentials() {
+    return new secretsmanager.Secret(this, "XroadAdminCredentials", {
+      secretName: "XroadSecurityServerAdminCredentials",
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          username: ssm.StringParameter.valueFromLookup(this, "/xroad/admin"),
+        }),
+        generateStringKey: "password",
+      },
+    });
   }
 
   private createApiGatewayNlb(vpc: ec2.Vpc, service: ecs.FargateService) {
@@ -210,6 +232,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     bastionHost: ec2.BastionHostLinux,
     ecsCluster: ecs.Cluster,
     namespace: servicediscovery.PrivateDnsNamespace,
+    xroadAdminCredentials: secretsmanager.ISecret,
+    xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService
   ) {
@@ -238,22 +262,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     };
     taskDefinition.addVolume(volume);
 
-    const xroadAdminCredentials = new secretsmanager.Secret(
-      this,
-      "XroadAdminCredentials",
-      {
-        secretName: "XroadSecurityServerAdminCredentials",
-        generateSecretString: {
-          secretStringTemplate: JSON.stringify({
-            username: ssm.StringParameter.valueFromLookup(this, "/xroad/admin"),
-          }),
-          generateStringKey: "password",
-        },
-      }
-    );
-    const xroadTokenPin = new secretsmanager.Secret(this, "XroadTokenPin", {
-      secretName: "XroadTokenPin",
-    });
     const container = taskDefinition.addContainer("PrimaryNodeContainer", {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
