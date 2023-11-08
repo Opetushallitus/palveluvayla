@@ -25,6 +25,11 @@ const PolicyDocument = JSON.stringify({
     },
     {
       Effect: "Allow",
+      Action: ["logs:*"],
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
       Action: ["rds:*"],
       Resource: "*",
     },
