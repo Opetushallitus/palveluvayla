@@ -12,6 +12,9 @@ function main {
 
   local postgres_host="$(aws rds describe-db-clusters --output text --query "DBClusters[0].Endpoint")"
 
+  local xroad_secondary_node="$(aws elbv2 describe-load-balancers --output text \
+     --query "LoadBalancers[?Scheme == 'internal'].DNSName")"
+
   local xroad_primary_node="primary-node.security-server"
 
   ssh-keygen -q -t rsa -f temporary_key -N ''
@@ -31,8 +34,7 @@ function main {
     -N \
     -L 0.0.0.0:2222:$postgres_host:5432 \
     -L 0.0.0.0:4000:$xroad_primary_node:4000 \
-    -L 0.0.0.0:8443:$xroad_primary_node:8443 \
-    -L 0.0.0.0:8080:$xroad_primary_node:8080 \
+    -L 0.0.0.0:8443:$xroad_secondary_node:8443 \
     "ec2-user@${instance_id}"
 }
 
