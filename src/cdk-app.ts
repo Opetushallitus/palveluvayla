@@ -64,7 +64,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const vpc = this.createVpc();
-    const serviceSecurityGroup = this.createServiceSecurityGroup(vpc);
     const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
@@ -74,9 +73,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     const xroadAdminCredentials = this.createXroadAdminCredentials();
     const xroadTokenPin = this.createXroadTokenPin();
     const secondaryNodes = this.createSecondaryNodes(
+      vpc,
       databaseCluster,
       ecsCluster,
-      serviceSecurityGroup,
       xroadAdminCredentials,
       xroadTokenPin,
       sshKeyPair
@@ -124,31 +123,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     listener.addTargets("ApiGatewayTarget", {
       port: 8443,
-
       targets: [service],
     });
     return { apigwNlb, listener };
-  }
-
-  private createServiceSecurityGroup(vpc: ec2.Vpc) {
-    const serviceSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "PalveluvaylaServiceSecurityGroup",
-      {
-        vpc: vpc,
-        allowAllOutbound: true,
-        description: "Allow traffic to Palveluvayla HTTP API service.",
-        securityGroupName: "PalveluvaylaServiceSecurityGroup",
-      }
-    );
-
-    serviceSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(vpc.vpcCidrBlock),
-      ec2.Port.tcp(8443),
-      "palveluvayla https proxy"
-    );
-
-    return serviceSecurityGroup;
   }
 
   private createApiGateway(
@@ -343,9 +320,9 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createSecondaryNodes(
+    vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
-    securityGroup: ec2.SecurityGroup,
     xroadAdminCredentials: secretsmanager.ISecret,
     xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret
@@ -404,10 +381,14 @@ class XroadSecurityServerStack extends cdk.Stack {
       cluster: ecsCluster,
       taskDefinition,
       desiredCount: 2,
-      securityGroups: [securityGroup],
       enableExecuteCommand: true,
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
+    service.connections.allowFrom(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(8443),
+      "Allow access from the vpc to the outwards ssl proxy"
+    );
 
     return service;
   }
