@@ -87,8 +87,12 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
-    this.createApiGateway(vpcLink, listener, env);
-    this.createOutgoingProxyAlb(vpc, sslCertificate, secondaryNodes);
+    const alb = this.createOutgoingProxyAlb(
+      vpc,
+      sslCertificate,
+      secondaryNodes
+    );
+    this.createApiGateway(vpcLink, listener, alb.listeners[0], zoneName, env);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -137,28 +141,36 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
-    listener: elbv2.NetworkListener,
+    nlblistener: elbv2.NetworkListener,
+    proxyListener: elbv2.ApplicationListener,
+    zoneName: string,
     env: EnvName
   ) {
-    const defaultIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
+    const nlbIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
       "PalveluvaylaNlbIntegration",
-      listener,
+      nlblistener,
       {
         vpcLink: vpcLink,
       }
     );
 
-    const authorizer = new HttpIamAuthorizer()
+    const proxyIntegration = new apigatewayv2_integrations.HttpAlbIntegration(
+      "OutgoingProxyIntegration",
+      proxyListener,
+      { vpcLink, secureServerName: `proxy.${zoneName}` }
+    );
+
+    const authorizer = new HttpIamAuthorizer();
 
     const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
-      defaultIntegration: defaultIntegration,
-      defaultAuthorizer: authorizer
+      defaultIntegration: proxyIntegration,
+      defaultAuthorizer: authorizer,
     });
 
     httpApi.addRoutes({
       path: `/r1/${palveluvaylaEnv[env]}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
       methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
-      integration: defaultIntegration,
+      integration: nlbIntegration,
     });
 
     const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
@@ -425,6 +437,10 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: 8443,
           hostPort: 8443,
+        },
+        {
+          containerPort: 8080,
+          hostPort: 8080,
         },
       ],
     });
