@@ -86,7 +86,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       xroadTokenPin,
       sshKeyPair
     );
-    const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
     const alb = this.createOutgoingProxyAlb(
       vpc,
       sslCertificate,
@@ -122,21 +121,6 @@ class XroadSecurityServerStack extends cdk.Stack {
         generateStringKey: "password",
       },
     });
-  }
-
-  private createApiGatewayNlb(vpc: ec2.Vpc, service: ecs.FargateService) {
-    const apigwNlb = new elbv2.NetworkLoadBalancer(this, "ApiGatewayNlb", {
-      vpc: vpc,
-      internetFacing: false,
-    });
-    const listener = apigwNlb.addListener("ApiGatewayListener", {
-      port: 8443,
-    });
-    listener.addTargets("ApiGatewayTarget", {
-      port: 8443,
-      targets: [service],
-    });
-    return { apigwNlb, listener };
   }
 
   private createApiGateway(
