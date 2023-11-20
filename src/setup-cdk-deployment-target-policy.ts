@@ -51,12 +51,22 @@ const PolicyDocument = JSON.stringify({
     {
       Effect: "Allow",
       Action: ["apigateway:*"],
-      Resource: "*"
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
+      Action: ["acm:*"],
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
+      Action: ["route53:*"],
+      Resource: "*",
     },
     {
       Effect: "Allow",
       Action: ["iam:GetRole", "iam:PassRole"],
-      Resource: "*"
+      Resource: "*",
     },
   ],
 });
