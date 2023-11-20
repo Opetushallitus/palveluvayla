@@ -92,7 +92,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate,
       secondaryNodes
     );
-    this.createApiGateway(vpcLink, listener, alb.listeners[0], zoneName, env);
+    this.createApiGateway(vpcLink, alb.listeners[0], zoneName, env);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -141,19 +141,10 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createApiGateway(
     vpcLink: apigatewayv2.VpcLink,
-    nlblistener: elbv2.NetworkListener,
     proxyListener: elbv2.ApplicationListener,
     zoneName: string,
     env: EnvName
   ) {
-    const nlbIntegration = new apigatewayv2_integrations.HttpNlbIntegration(
-      "PalveluvaylaNlbIntegration",
-      nlblistener,
-      {
-        vpcLink: vpcLink,
-      }
-    );
-
     const proxyIntegration = new apigatewayv2_integrations.HttpAlbIntegration(
       "OutgoingProxyIntegration",
       proxyListener,
@@ -170,7 +161,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     httpApi.addRoutes({
       path: `/r1/${palveluvaylaEnv[env]}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
       methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
-      integration: nlbIntegration,
+      integration: proxyIntegration,
     });
 
     const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
