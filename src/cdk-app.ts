@@ -17,6 +17,7 @@ import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import {HttpIamAuthorizer} from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 
 type EnvName = "dev" | "qa" | "prod";
 const palveluvaylaEnv: { [k in EnvName]: string } = {
@@ -50,9 +51,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       "/env/name"
     ) as EnvName;
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
+    const zoneName = `${env}.${domain}`;
 
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
-      zoneName: `${env}.${domain}`,
+      zoneName,
     });
     const securityServerNlbARecord = new route53.ARecord(
       this,
@@ -63,6 +65,10 @@ class XroadSecurityServerStack extends cdk.Stack {
         target: route53.RecordTarget.fromIpAddresses(inIpAddress.ref),
       }
     );
+    const sslCertificate = new acm.Certificate(this, "SslCertificate", {
+      domainName: `*.${zoneName}`,
+      validation: acm.CertificateValidation.fromDns(hostedZone),
+    });
     const vpc = this.createVpc();
     const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
@@ -82,6 +88,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const { listener } = this.createApiGatewayNlb(vpc, secondaryNodes);
     this.createApiGateway(vpcLink, listener, env);
+    this.createOutgoingProxyAlb(vpc, sslCertificate, secondaryNodes);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -177,6 +184,51 @@ class XroadSecurityServerStack extends cdk.Stack {
     logGroup.grantWrite(new iam.ServicePrincipal("apigateway.amazonaws.com"));
 
     return httpApi;
+  }
+
+  private createOutgoingProxyAlb(
+    vpc: ec2.Vpc,
+    sslCertificate: acm.Certificate,
+    service: ecs.FargateService
+  ) {
+    const albPort = 443;
+    const proxyPort = 8080;
+    const healthCheckPort = 5588;
+
+    const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
+      vpc,
+      internetFacing: false,
+    });
+
+    alb
+      .addListener("OutgoingProxyHttp", {
+        port: albPort,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
+        certificates: [sslCertificate],
+      })
+      .addTargets("OutgoingProxyHttp", {
+        port: proxyPort,
+        targets: [service],
+        healthCheck: {
+          interval: cdk.Duration.seconds(60),
+          timeout: cdk.Duration.seconds(5),
+          protocol: elbv2.Protocol.HTTP,
+          port: `${healthCheckPort}`,
+        },
+      });
+
+    service.connections.allowFrom(
+      alb,
+      ec2.Port.tcp(proxyPort),
+      "Allow connections from alb to outgoing proxy port"
+    );
+    service.connections.allowFrom(
+      alb,
+      ec2.Port.tcp(healthCheckPort),
+      "Allow connections from alb to health check port"
+    );
+
+    return alb;
   }
 
   private lookupSshKeyPair() {
