@@ -70,7 +70,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       validation: acm.CertificateValidation.fromDns(hostedZone),
     });
     const vpc = this.createVpc();
-    const vpcLink = this.createVpcLink(vpc);
     const bastionHost = this.createBastionHost(vpc);
     const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
     const ecsCluster = this.createEcsCluster(vpc);
@@ -91,7 +90,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate,
       secondaryNodes
     );
-    this.createApiGateway(vpcLink, alb.listeners[0], zoneName, env);
+    this.createApiGateway(vpc, alb.listeners[0], zoneName, env);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -124,28 +123,49 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createApiGateway(
-    vpcLink: apigatewayv2.VpcLink,
+    vpc: ec2.Vpc,
     proxyListener: elbv2.ApplicationListener,
     zoneName: string,
     env: EnvName
   ) {
+    const vpcLinkSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "OutgoingProxyVpcLinkSecurityGroup",
+      { vpc, allowAllOutbound: true }
+    );
+
+    const proxyVpcLink = new apigatewayv2.VpcLink(
+      this,
+      "OutgoingProxyVpcLink",
+      {
+        vpc: vpc,
+        subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        securityGroups: [vpcLinkSecurityGroup],
+      }
+    );
+
     const proxyIntegration = new apigatewayv2_integrations.HttpAlbIntegration(
       "OutgoingProxyIntegration",
       proxyListener,
-      { vpcLink, secureServerName: `proxy.${zoneName}` }
+      {
+        method: apigatewayv2.HttpMethod.ANY,
+        vpcLink: proxyVpcLink,
+        secureServerName: `proxy.${zoneName}`,
+      }
     );
 
     const authorizer = new HttpIamAuthorizer();
 
-    const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
-      defaultIntegration: proxyIntegration,
-      defaultAuthorizer: authorizer,
-    });
+    const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi");
 
-    httpApi.addRoutes({
-      path: `/r1/${palveluvaylaEnv[env]}/GOV/0245437-2/VTJmutpa/VTJmutpa/api/v1`,
-      methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
+    const httpRoute = new apigatewayv2.HttpRoute(this, "HttpRoute", {
+      httpApi: httpApi,
+      authorizer: authorizer,
       integration: proxyIntegration,
+      routeKey: apigatewayv2.HttpRouteKey.with(
+        "/{proxy+}",
+        apigatewayv2.HttpMethod.ANY
+      ),
     });
 
     const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
@@ -204,6 +224,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       });
 
+    alb.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(443));
     service.connections.allowFrom(
       alb,
       ec2.Port.tcp(proxyPort),
@@ -410,10 +431,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
       portMappings: [
         {
-          containerPort: 8443,
-          hostPort: 8443,
-        },
-        {
           containerPort: 8080,
           hostPort: 8080,
         },
@@ -472,19 +489,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
 
     return vpc;
-  }
-
-  private createVpcLink(vpc: ec2.Vpc) {
-    const securityGroup = new ec2.SecurityGroup(this, "allow-in", {
-      vpc: vpc,
-      allowAllOutbound: true,
-    });
-    securityGroup.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(8443));
-    return new apigatewayv2.VpcLink(this, "PalveluvaylaVpcLink", {
-      vpc: vpc,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [securityGroup],
-    });
   }
 
   private createDatabaseCluster(
