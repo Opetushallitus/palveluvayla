@@ -16,8 +16,9 @@ import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
-import {HttpIamAuthorizer} from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
+import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as targets from "aws-cdk-lib/aws-route53-targets";
 
 type EnvName = "dev" | "qa" | "prod";
 const palveluvaylaEnv: { [k in EnvName]: string } = {
@@ -90,7 +91,13 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate,
       secondaryNodes
     );
-    this.createApiGateway(vpc, alb.listeners[0], zoneName, env);
+    this.createApiGateway(
+      vpc,
+      alb.listeners[0],
+      zoneName,
+      hostedZone,
+      sslCertificate
+    );
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -126,7 +133,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     vpc: ec2.Vpc,
     proxyListener: elbv2.ApplicationListener,
     zoneName: string,
-    env: EnvName
+    hostedZone: route53.HostedZone,
+    certificate: acm.Certificate
   ) {
     const vpcLinkSecurityGroup = new ec2.SecurityGroup(
       this,
@@ -155,8 +163,32 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
 
     const authorizer = new HttpIamAuthorizer();
+    const dnsName = `proxy.${zoneName}`;
+    const domainName = new apigatewayv2.DomainName(
+      this,
+      "OutgoingProxyDomain",
+      {
+        domainName: dnsName,
+        certificate,
+      }
+    );
 
-    const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi");
+    const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
+      defaultDomainMapping: {
+        domainName,
+      },
+    });
+
+    new route53.ARecord(this, "OutgointProxyARecord", {
+      recordName: dnsName,
+      zone: hostedZone,
+      target: route53.RecordTarget.fromAlias(
+        new targets.ApiGatewayv2DomainProperties(
+          domainName.regionalDomainName,
+          domainName.regionalHostedZoneId
+        )
+      ),
+    });
 
     const httpRoute = new apigatewayv2.HttpRoute(this, "HttpRoute", {
       httpApi: httpApi,
