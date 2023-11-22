@@ -68,6 +68,11 @@ const PolicyDocument = JSON.stringify({
       Action: ["iam:GetRole", "iam:PassRole"],
       Resource: "*",
     },
+    {
+      Effect: "Allow",
+      Action: ["servicediscovery:*"],
+      Resource: "*",
+    },
   ],
 });
 
