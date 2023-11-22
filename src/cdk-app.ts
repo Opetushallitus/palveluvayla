@@ -21,11 +21,6 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 
 type EnvName = "dev" | "qa" | "prod";
-const palveluvaylaEnv: { [k in EnvName]: string } = {
-  dev: "FI-DEV",
-  qa: "FI-TEST",
-  prod: "FI",
-};
 
 class CdkApp extends cdk.App {
   constructor() {
