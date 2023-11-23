@@ -154,12 +154,6 @@ class XroadSecurityServerStack extends cdk.Stack {
         method: apigatewayv2.HttpMethod.ANY,
         vpcLink: proxyVpcLink,
         secureServerName: `proxy.${zoneName}`,
-        parameterMapping: new apigatewayv2.ParameterMapping()
-          .appendHeader(
-            "authorization",
-            apigatewayv2.MappingValue.requestHeader("x-authorization")
-          )
-          .removeHeader("x-authorization"),
       }
     );
 
