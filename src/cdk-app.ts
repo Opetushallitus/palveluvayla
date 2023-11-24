@@ -38,9 +38,8 @@ class CdkApp extends cdk.App {
 class XroadSecurityServerStack extends cdk.Stack {
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
-    const inIpAddress = new ec2.CfnEIP(this, "InIpAddress", {
-      tags: [{ key: "Name", value: "InIpAddress" }],
-    });
+
+    const inIpAddresses = this.createInIpAddresses();
 
     const env = ssm.StringParameter.valueFromLookup(
       this,
@@ -52,15 +51,13 @@ class XroadSecurityServerStack extends cdk.Stack {
     const hostedZone = new route53.HostedZone(this, "HostedZone", {
       zoneName,
     });
-    const securityServerNlbARecord = new route53.ARecord(
-      this,
-      "SecurityServerNLB",
-      {
-        recordName: this.hostName(env),
-        zone: hostedZone,
-        target: route53.RecordTarget.fromIpAddresses(inIpAddress.ref),
-      }
-    );
+    new route53.ARecord(this, "SecurityServerNLB", {
+      recordName: this.hostName(env),
+      zone: hostedZone,
+      target: route53.RecordTarget.fromIpAddresses(
+        ...inIpAddresses.map((i) => i.ref)
+      ),
+    });
     const sslCertificate = new acm.Certificate(this, "SslCertificate", {
       domainName: `*.${zoneName}`,
       validation: acm.CertificateValidation.fromDns(hostedZone),
@@ -103,6 +100,15 @@ class XroadSecurityServerStack extends cdk.Stack {
       xroadTokenPin,
       sshKeyPair,
       secondaryNodes
+    );
+  }
+
+  private createInIpAddresses() {
+    return ["InIpAddress", "InIpAddress2"].map(
+      (id) =>
+        new ec2.CfnEIP(this, id, {
+          tags: [{ key: "Name", value: id }],
+        })
     );
   }
 
