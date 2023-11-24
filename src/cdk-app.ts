@@ -104,12 +104,15 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createInIpAddresses() {
-    return ["InIpAddress", "InIpAddress2"].map(
-      (id) =>
-        new ec2.CfnEIP(this, id, {
-          tags: [{ key: "Name", value: id }],
-        })
+    return ["InIpAddress", "InIpAddress2"].map((ip) =>
+      this.createIpAddress(ip)
     );
+  }
+
+  private createIpAddress(id: string) {
+    return new ec2.CfnEIP(this, id, {
+      tags: [{ key: "Name", value: id }],
+    });
   }
 
   private createXroadTokenPin() {
