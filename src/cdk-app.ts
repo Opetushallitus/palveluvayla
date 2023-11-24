@@ -490,12 +490,12 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createVpc() {
-    const outIpAddress = new ec2.CfnEIP(this, "OutIpAddress", {
-      tags: [{ key: "Name", value: "OutIpAddress" }],
-    });
+    const outIpAddresses = this.createOutIpAddresses();
 
     const natProvider = ec2.NatProvider.gateway({
-      eipAllocationIds: [outIpAddress.getAtt("AllocationId").toString()],
+      eipAllocationIds: outIpAddresses.map((ip) =>
+        ip.getAtt("AllocationId").toString()
+      ),
     });
 
     const vpc = new ec2.Vpc(this, "XroadSecurityServerVpc", {
@@ -514,7 +514,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       ],
       maxAzs: 2,
-      natGateways: 1,
+      natGateways: 2,
       natGatewayProvider: natProvider,
     });
 
@@ -525,6 +525,12 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
 
     return vpc;
+  }
+
+  private createOutIpAddresses() {
+    return ["OutIpAddress", "OutIpAddress2"].map((ip) =>
+      this.createIpAddress(ip)
+    );
   }
 
   private createDatabaseCluster(
