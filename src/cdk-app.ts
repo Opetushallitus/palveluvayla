@@ -19,6 +19,7 @@ import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integratio
 import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
+import { HostedZone } from "aws-cdk-lib/aws-route53";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -80,6 +81,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const alb = this.createOutgoingProxyAlb(
       vpc,
+      hostedZone,
       sslCertificate,
       secondaryNodes
     );
@@ -231,6 +233,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createOutgoingProxyAlb(
     vpc: ec2.Vpc,
+    hostedZone: HostedZone,
     sslCertificate: acm.Certificate,
     service: ecs.FargateService
   ) {
@@ -241,6 +244,13 @@ class XroadSecurityServerStack extends cdk.Stack {
     const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
       vpc,
       internetFacing: false,
+    });
+    new route53.ARecord(this, "OutgoingProxyInternal", {
+      recordName: `internal-proxy.${hostedZone.zoneName}`,
+      target: route53.RecordTarget.fromAlias(
+        new targets.LoadBalancerTarget(alb)
+      ),
+      zone: hostedZone,
     });
 
     alb
