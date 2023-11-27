@@ -20,6 +20,8 @@ import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import { HostedZone } from "aws-cdk-lib/aws-route53";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import { Duration } from "aws-cdk-lib";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -85,9 +87,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate,
       secondaryNodes
     );
+    const proxyLambda = this.createOutgoingProxyLambda(vpc, zoneName);
     this.createApiGateway(
       vpc,
       alb.listeners[0],
+      proxyLambda,
       zoneName,
       hostedZone,
       sslCertificate
@@ -103,6 +107,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes
     );
+  }
+
+  private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
+    return new lambda.Function(this, "MyFunction", {
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../lambda/apigateway-proxy")
+      ),
+      timeout: Duration.seconds(35),
+      environment: {
+        ALB_HOST_NAME: `internal-proxy.${zoneName}`,
+      },
+    });
   }
 
   private createInIpAddresses() {
@@ -138,6 +158,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createApiGateway(
     vpc: ec2.Vpc,
     proxyListener: elbv2.ApplicationListener,
+    proxyLambda: lambda.Function,
     zoneName: string,
     hostedZone: route53.HostedZone,
     certificate: acm.Certificate
@@ -167,6 +188,12 @@ class XroadSecurityServerStack extends cdk.Stack {
         secureServerName: `proxy.${zoneName}`,
       }
     );
+
+    const proxyLambdaIntegration =
+      new apigatewayv2_integrations.HttpLambdaIntegration(
+        "OugoingProxyTransformer",
+        proxyLambda
+      );
 
     const authorizer = new HttpIamAuthorizer();
     const dnsName = `proxy.${zoneName}`;
@@ -199,7 +226,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const httpRoute = new apigatewayv2.HttpRoute(this, "HttpRoute", {
       httpApi: httpApi,
       authorizer: authorizer,
-      integration: proxyIntegration,
+      integration: proxyLambdaIntegration,
       routeKey: apigatewayv2.HttpRouteKey.with(
         "/{proxy+}",
         apigatewayv2.HttpMethod.ANY

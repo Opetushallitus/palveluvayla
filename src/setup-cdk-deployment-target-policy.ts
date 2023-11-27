@@ -73,6 +73,16 @@ const PolicyDocument = JSON.stringify({
       Action: ["servicediscovery:*"],
       Resource: "*",
     },
+    {
+      Effect: "Allow",
+      Action: ["lambda:*"],
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
+      Action: ["s3:*"],
+      Resource: "*",
+    },
   ],
 });
 
