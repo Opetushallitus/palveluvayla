@@ -1,12 +1,12 @@
 "use strict";
 const albHostName = process.env["ALB_HOST_NAME"];
-const thirtyFiveSecondsInMilliseconds = 35 * 1000;
+const twenttyFiveSecondsInMilliseconds = 25 * 1000;
 
 exports.handler = async (event) => {
   const url = `https://${albHostName}${event.requestContext.http.path}`;
 
   return fetch(url, {
-    signal: AbortSignal.timeout(thirtyFiveSecondsInMilliseconds),
+    signal: AbortSignal.timeout(twenttyFiveSecondsInMilliseconds),
     method: event.requestContext.http.method,
     headers: {
       "x-road-client": event.headers["x-road-client"],
