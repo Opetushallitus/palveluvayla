@@ -3,8 +3,6 @@ const albHostName = process.env["ALB_HOST_NAME"];
 const thirtyFiveSecondsInMilliseconds = 35 * 1000;
 
 exports.handler = async (event) => {
-  console.log(JSON.stringify(event));
-
   return fetch(`https://${albHostName}${event.requestContext.http.path}`, {
     signal: AbortSignal.timeout(thirtyFiveSecondsInMilliseconds),
     method: event.requestContext.http.method,
