@@ -10,6 +10,7 @@ exports.handler = async (event) => {
     signal: AbortSignal.timeout(thirtyFiveSecondsInMilliseconds),
     method: event.requestContext.http.method,
     headers: {
+      "x-road-client": even.headers["x-road-client"],
       "content-type": event.headers["content-type"],
       authorization: event.headers["x-authentication"],
     },
