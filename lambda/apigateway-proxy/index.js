@@ -4,7 +4,6 @@ const thirtyFiveSecondsInMilliseconds = 35 * 1000;
 
 exports.handler = async (event) => {
   console.log(JSON.stringify(event));
-  const { "x-amz-security-token": foo, ...headers } = event.headers;
 
   return fetch(`https://${albHostName}${event.requestContext.http.path}`, {
     signal: AbortSignal.timeout(thirtyFiveSecondsInMilliseconds),
