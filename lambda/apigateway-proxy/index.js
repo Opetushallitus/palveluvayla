@@ -12,7 +12,7 @@ exports.handler = async (event) => {
     headers: {
       "x-road-client": even.headers["x-road-client"],
       "content-type": event.headers["content-type"],
-      authorization: event.headers["x-authentication"],
+      authentication: event.headers["x-authentication"],
     },
     body: event.body,
   })
