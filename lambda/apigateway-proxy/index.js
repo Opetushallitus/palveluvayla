@@ -4,14 +4,13 @@ const twenttyFiveSecondsInMilliseconds = 25 * 1000;
 
 exports.handler = async (event) => {
   const url = `https://${albHostName}${event.requestContext.http.path}`;
-
   return fetch(url, {
     signal: AbortSignal.timeout(twenttyFiveSecondsInMilliseconds),
     method: event.requestContext.http.method,
     headers: {
       "x-road-client": event.headers["x-road-client"],
       "content-type": event.headers["content-type"],
-      authentication: event.headers["x-authentication"],
+      authorization: event.headers["x-authorization"],
     },
     body: event.body,
   })
