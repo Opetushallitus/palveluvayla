@@ -236,7 +236,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       this,
       "/env/onr-account-id"
     );
-    httpRoute.grantInvoke(new iam.AccountPrincipal(onrAccountId));
+    const invokeRole = new iam.Role(this, "ApigwInvokeRole", {
+      roleName: "ApigwInvokeRole",
+      assumedBy: new iam.AccountPrincipal(onrAccountId),
+    });
+    httpRoute.grantInvoke(invokeRole);
 
     const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
     const logGroup = new logs.LogGroup(httpApi, "AccessLogs", {
