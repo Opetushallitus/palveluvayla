@@ -232,6 +232,11 @@ class XroadSecurityServerStack extends cdk.Stack {
         apigatewayv2.HttpMethod.ANY
       ),
     });
+    const onrAccountId = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/onr-account-id"
+    );
+    httpRoute.grantInvoke(new iam.AccountPrincipal(onrAccountId));
 
     const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
     const logGroup = new logs.LogGroup(httpApi, "AccessLogs", {
