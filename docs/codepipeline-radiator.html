@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="120">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>AWS Codepipelin radiator</title>
+    <style>
+     body {
+         margin: 0;
+         padding: 0;
+         width: 100vw;
+         box-sizing: border-box;
+         font-family: Helvetica, Arial, sans-serif;
+         background-color: #000;
+     }
+
+     .card {
+         width: 200px;
+         height: 100px;
+         background-color: #f0f0f0;
+         color: white;
+         margin: 10px;
+         padding: 10px;
+         display: inline-block;
+         text-align: center;
+         border-radius: 5px;
+     }
+
+     .card.Failed {
+         background-color: #c84242;;
+     }
+
+     .card.Succeeded {
+         background-color: #428ac8;
+     }
+
+
+     @keyframes pulseYellow {
+         0% {
+             background-color: #f0f000;
+         }
+         50% {
+             background-color: #f0f0a0;
+         }
+         100% {
+             background-color: #f0f000;
+         }
+     }
+
+
+     .InProgress {
+         animation: 2s infinite alternate pulseYellow;
+     }
+    </style>
+    <script src=
+    "https://sdk.amazonaws.com/js/aws-sdk-2.410.0.min.js"></script>
+    <script>
+     let key  = localStorage.getItem("key");
+     let secret = localStorage.getItem("secret");
+     let region = localStorage.getItem("region");
+
+     AWS.config.update({
+         accessKeyId: key,
+         secretAccessKey: secret,
+         region: region
+     });
+
+     function updatePipelines() {
+         let codepipeline = new AWS.CodePipeline();
+         codepipeline.listPipelines({}, function(err, data) {
+             if (err) {
+                 console.log(err, err.stack);
+             } else {
+                 data.pipelines.forEach(function(pipeline) {
+                     codepipeline.getPipelineState({name: pipeline.name}, function(err, data) {
+                         if (err) {
+                             console.log(err, err.stack);
+                         } else {
+                             var pipelineState = data.stageStates.map(function(stage) {
+                                 return stage.latestExecution.status;
+                             }).reduce(function(a, b) {
+                                 return a === 'Failed' || b === 'Failed' ? 'Failed' : a === 'InProgress' || b === 'InProgress' ? 'InProgress' : 'Succeeded';
+                             });
+                             let card = document.getElementById(pipeline.name);
+                             if (card) {
+                                 card.className = 'card ' + pipelineState;
+                             } else {
+                                 document.body.appendChild(createCard(
+                                     pipeline,
+                                     pipelineState
+                                 ));
+                             }
+                         }
+                     });
+                 });
+             }
+         });
+     }
+
+     function createCard(pipeline, pipelineState) {
+         let card = document.createElement('div');
+         card.id = pipeline.name;
+         card.className = 'card ' + pipelineState;
+         card.innerHTML = pipeline.name;
+         return card;
+     }
+
+     window.onload = updatePipelines
+     setInterval(updatePipelines, 5000);
+    </script>
+</head>
+<body>
+    <!--[if lt IE 8]>
+            <p class="browserupgrade">
+            You are using an <strong>outdated</strong> browser. Please
+            <a href="http://browsehappy.com/">upgrade your browser</a> to improve
+            your experience.
+            </p>
+        <![endif]-->
+</body>
+</html>

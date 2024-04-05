@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html class="no-js" lang="">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Untitled</title>
+    <meta name="description" content="">
+    <meta name="viewport" content=
+    "width=device-width, initial-scale=1">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <script>
+        function saveToken(type) {
+            var token = document.getElementById(type).value;
+            localStorage.setItem(type, token);
+        }
+    </script>
+</head>
+<body>
+    <input type="text" id="key"> <button onclick=
+    "saveToken('key')">Save key</button> <input type="text" id=
+    "secret"> <button onclick="saveToken('secret')">Save
+    secret</button> <input type="text" id="region">
+    <button onclick="saveToken('region')">Save region</button>
+</body>
+</html>
