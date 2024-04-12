@@ -22,6 +22,7 @@ import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+import { Duration } from "aws-cdk-lib";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -318,7 +319,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createOutgoingProxyAlb(
     vpc: ec2.Vpc,
-    hostedZone: HostedZone,
+    hostedZone: route53.HostedZone,
     sslCertificate: acm.Certificate,
     service: ecs.FargateService
   ) {
