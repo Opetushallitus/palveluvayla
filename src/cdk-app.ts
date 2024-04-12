@@ -19,9 +19,7 @@ import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integratio
 import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
-import { HostedZone } from "aws-cdk-lib/aws-route53";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import { Duration } from "aws-cdk-lib";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 
