@@ -28,9 +28,11 @@ type EnvName = "dev" | "qa" | "prod";
 class CdkApp extends cdk.App {
   constructor() {
     super();
-    const env = {
-      account: process.env.CDK_DEPLOY_TARGET_ACCOUNT,
-      region: process.env.CDK_DEPLOY_TARGET_REGION,
+    const stackProps = {
+      env: {
+        account: process.env.CDK_DEPLOY_TARGET_ACCOUNT,
+        region: process.env.CDK_DEPLOY_TARGET_REGION,
+      },
     };
     new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
       env: env,
