@@ -22,6 +22,8 @@ import * as targets from "aws-cdk-lib/aws-route53-targets";
 import { HostedZone } from "aws-cdk-lib/aws-route53";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Duration } from "aws-cdk-lib";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -34,9 +36,56 @@ class CdkApp extends cdk.App {
         region: process.env.CDK_DEPLOY_TARGET_REGION,
       },
     };
-    new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
-      env: env,
+
+    new AlarmStack(this, "AlarmStack", stackProps);
+    new XroadSecurityServerStack(this, "XroadSecurityServerStack", stackProps);
+  }
+}
+
+class AlarmStack extends cdk.Stack {
+  constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
+    super(scope, id, props);
+
+    const alarmsToSlackLambda = this.createAlarmsToSlackLambda();
+    const alarmTopic = this.createAlarmTopic();
+
+    alarmTopic.addSubscription(
+      new subscriptions.LambdaSubscription(alarmsToSlackLambda)
+    );
+  }
+
+  createAlarmTopic() {
+    return new sns.Topic(this, "AlarmTopic", {
+      topicName: "alarm",
     });
+  }
+
+  createAlarmsToSlackLambda() {
+    const alarmsToSlack = new lambda.Function(this, "AlarmsToSlack", {
+      functionName: "alarms-to-slack",
+      code: lambda.Code.fromAsset("alarms-to-slack"),
+      handler: "alarms-to-slack.handler",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: Duration.seconds(30),
+    });
+
+    // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
+    const parametersAndSecretsExtension =
+      lambda.LayerVersion.fromLayerVersionArn(
+        this,
+        "ParametersAndSecretsLambdaExtension",
+        "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11"
+      );
+
+    alarmsToSlack.addLayers(parametersAndSecretsExtension);
+    secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "slack-webhook",
+      "slack-webhook"
+    ).grantRead(alarmsToSlack);
+
+    return alarmsToSlack;
   }
 }
 
