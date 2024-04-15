@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -o errexit -o nounset -o pipefail
-readonly repo="$(cd "$(dirname "$0")/.." && pwd)"
+readonly repo="$(cd "$(dirname "$0")" && pwd)"
 source "${repo}/scripts/lib/common-functions.sh"
 
 function force_push_tag {
