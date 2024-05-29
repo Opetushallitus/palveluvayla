@@ -23,6 +23,8 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import { Duration } from "aws-cdk-lib";
+import * as events from "aws-cdk-lib/aws-events";
+import * as event_targets from "aws-cdk-lib/aws-events-targets";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -41,6 +43,15 @@ class CdkApp extends cdk.App {
       this,
       "XroadSecurityServerStack",
       stackProps
+    );
+    new XroadSecurityServerMonitoringStack(
+      this,
+      "XroadSecurityServerMonitoringStack",
+      {
+        ...stackProps,
+        vpc: xroadSecurityServerStack.vpc,
+        primaryNode: xroadSecurityServerStack.primaryNode,
+      }
     );
   }
 }
@@ -670,6 +681,67 @@ class XroadSecurityServerStack extends cdk.Stack {
   private hostName(env: string) {
     const part = env == "qa" ? "test" : env;
     return `oph${part}01`;
+  }
+}
+
+interface XroadSecurityServerMonitoringStackProps extends cdk.StackProps {
+  vpc: ec2.Vpc;
+  primaryNode: ecs.FargateService;
+}
+
+class XroadSecurityServerMonitoringStack extends cdk.Stack {
+  constructor(
+    scope: constructs.Construct,
+    id: string,
+    props: XroadSecurityServerMonitoringStackProps
+  ) {
+    super(scope, id, props);
+    const l = this.createCertificateValidityLeftInDaysLambda(props.vpc);
+    props.primaryNode.connections.allowFrom(
+      l,
+      ec2.Port.tcp(4000),
+      "Allow access to Xroad management api"
+    );
+    const rule = new events.Rule(
+      this,
+      "LogXroadCertificateValidityEveryFiveMinutes",
+      {
+        schedule: events.Schedule.rate(Duration.minutes(5)),
+      }
+    );
+    rule.addTarget(new event_targets.LambdaFunction(l));
+  }
+
+  private createCertificateValidityLeftInDaysLambda(vpc: ec2.Vpc) {
+    const l = new lambda.Function(this, "certificateValidityLeftInDays", {
+      functionName: "certificate-validity-left-in-days",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../certificate-validity-left-in-days")
+      ),
+      handler: "handler",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+    });
+
+    // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
+    const parametersAndSecretsExtension =
+      lambda.LayerVersion.fromLayerVersionArn(
+        this,
+        "ParametersAndSecretsLambdaExtension",
+        "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11"
+      );
+
+    l.addLayers(parametersAndSecretsExtension);
+    secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "xroad-api-key",
+      "xroad-api-key"
+    ).grantRead(l);
+
+    return l;
   }
 }
 
