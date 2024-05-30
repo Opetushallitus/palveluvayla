@@ -696,6 +696,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       timeout: Duration.seconds(30),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      environment: {
+        XROAD_API_HOST: `${this.primaryNodeHostName}.${this.privateDnsNamespace}`,
+        XROAD_API_PORT: `${this.adminUiPort}`,
+      },
     });
 
     // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
