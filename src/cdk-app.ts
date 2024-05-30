@@ -91,6 +91,8 @@ class AlarmStack extends cdk.Stack {
 }
 
 class XroadSecurityServerStack extends cdk.Stack {
+  private readonly adminUiPort = 4000;
+
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
 
@@ -468,8 +470,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
       portMappings: [
         {
-          containerPort: 4000,
-          hostPort: 4000,
+          containerPort: this.adminUiPort,
+          hostPort: this.adminUiPort,
         },
       ],
     });
@@ -500,12 +502,12 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     ecsService.connections.allowFrom(
       bastionHost,
-      ec2.Port.tcp(4000),
+      ec2.Port.tcp(this.adminUiPort),
       "Allow access to admin web app"
     );
     ecsService.connections.allowFrom(
       certificateValidityLambda,
-      ec2.Port.tcp(4000),
+      ec2.Port.tcp(this.adminUiPort),
       "Allow access to maintenance API"
     );
     ecsService.connections.allowFrom(
