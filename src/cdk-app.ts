@@ -148,6 +148,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       hostedZone,
       sslCertificate
     );
+    const certificateValidityLambda =
+      this.createCertificateValidityLeftInDaysLambda(vpc);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -157,7 +159,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       xroadAdminCredentials,
       xroadTokenPin,
       sshKeyPair,
-      secondaryNodes
+      secondaryNodes,
+      certificateValidityLambda
     );
   }
 
@@ -408,7 +411,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     xroadAdminCredentials: secretsmanager.ISecret,
     xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret,
-    secondaryNodes: ecs.FargateService
+    secondaryNodes: ecs.FargateService,
+    certificateValidityLambda: lambda.Function
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -500,6 +504,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       bastionHost,
       ec2.Port.tcp(4000),
       "Allow access to admin web app"
+    );
+    ecsService.connections.allowFrom(
+      certificateValidityLambda,
+      ec2.Port.tcp(4000),
+      "Allow access to maintenance API"
     );
     ecsService.connections.allowFrom(
       bastionHost,
@@ -675,35 +684,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     const part = env == "qa" ? "test" : env;
     return `oph${part}01`;
   }
-}
-
-interface XroadSecurityServerMonitoringStackProps extends cdk.StackProps {
-  vpc: ec2.Vpc;
-  primaryNode: ecs.FargateService;
-}
-
-class XroadSecurityServerMonitoringStack extends cdk.Stack {
-  constructor(
-    scope: constructs.Construct,
-    id: string,
-    props: XroadSecurityServerMonitoringStackProps
-  ) {
-    super(scope, id, props);
-    const l = this.createCertificateValidityLeftInDaysLambda(props.vpc);
-    props.primaryNode.connections.allowFrom(
-      l,
-      ec2.Port.tcp(4000),
-      "Allow access to Xroad management api"
-    );
-    const rule = new events.Rule(
-      this,
-      "LogXroadCertificateValidityEveryFiveMinutes",
-      {
-        schedule: events.Schedule.rate(Duration.minutes(5)),
-      }
-    );
-    rule.addTarget(new event_targets.LambdaFunction(l));
-  }
 
   private createCertificateValidityLeftInDaysLambda(vpc: ec2.Vpc) {
     const l = new lambda.Function(this, "certificateValidityLeftInDays", {
@@ -733,6 +713,15 @@ class XroadSecurityServerMonitoringStack extends cdk.Stack {
       "xroad-api-key",
       "xroad-api-key"
     ).grantRead(l);
+
+    const rule = new events.Rule(
+      this,
+      "LogXroadCertificateValidityEveryFiveMinutes",
+      {
+        schedule: events.Schedule.rate(Duration.minutes(5)),
+      }
+    );
+    rule.addTarget(new event_targets.LambdaFunction(l));
 
     return l;
   }
