@@ -39,20 +39,7 @@ class CdkApp extends cdk.App {
     };
 
     new AlarmStack(this, "AlarmStack", stackProps);
-    const xroadSecurityServerStack = new XroadSecurityServerStack(
-      this,
-      "XroadSecurityServerStack",
-      stackProps
-    );
-    new XroadSecurityServerMonitoringStack(
-      this,
-      "XroadSecurityServerMonitoringStack",
-      {
-        ...stackProps,
-        vpc: xroadSecurityServerStack.vpc,
-        primaryNode: xroadSecurityServerStack.primaryNode,
-      }
-    );
+    new XroadSecurityServerStack(this, "XroadSecurityServerStack", stackProps);
   }
 }
 
@@ -104,9 +91,6 @@ class AlarmStack extends cdk.Stack {
 }
 
 class XroadSecurityServerStack extends cdk.Stack {
-  public readonly vpc: ec2.Vpc;
-  public readonly primaryNode: ecs.FargateService;
-
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
 
@@ -133,15 +117,16 @@ class XroadSecurityServerStack extends cdk.Stack {
       domainName: `*.${zoneName}`,
       validation: acm.CertificateValidation.fromDns(hostedZone),
     });
-    this.vpc = this.createVpc();
-    const bastionHost = this.createBastionHost();
-    const databaseCluster = this.createDatabaseCluster(bastionHost);
-    const ecsCluster = this.createEcsCluster();
-    const namespace = this.createNamespace();
+    const vpc = this.createVpc();
+    const bastionHost = this.createBastionHost(vpc);
+    const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
+    const ecsCluster = this.createEcsCluster(vpc);
+    const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
     const xroadAdminCredentials = this.createXroadAdminCredentials();
     const xroadTokenPin = this.createXroadTokenPin();
     const secondaryNodes = this.createSecondaryNodes(
+      vpc,
       databaseCluster,
       ecsCluster,
       xroadAdminCredentials,
@@ -149,19 +134,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair
     );
     const alb = this.createOutgoingProxyAlb(
+      vpc,
       hostedZone,
       sslCertificate,
       secondaryNodes
     );
-    const proxyLambda = this.createOutgoingProxyLambda(zoneName);
+    const proxyLambda = this.createOutgoingProxyLambda(vpc, zoneName);
     this.createApiGateway(
+      vpc,
       alb.listeners[0],
       proxyLambda,
       zoneName,
       hostedZone,
       sslCertificate
     );
-    this.primaryNode = this.createPrimaryNode(
+    this.createPrimaryNode(
+      vpc,
       databaseCluster,
       bastionHost,
       ecsCluster,
@@ -173,9 +161,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
   }
 
-  private createOutgoingProxyLambda(zoneName: string) {
+  private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
     return new lambda.Function(this, "MyFunction", {
-      vpc: this.vpc,
+      vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
@@ -220,6 +208,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createApiGateway(
+    vpc: ec2.Vpc,
     proxyListener: elbv2.ApplicationListener,
     proxyLambda: lambda.Function,
     zoneName: string,
@@ -229,14 +218,14 @@ class XroadSecurityServerStack extends cdk.Stack {
     const vpcLinkSecurityGroup = new ec2.SecurityGroup(
       this,
       "OutgoingProxyVpcLinkSecurityGroup",
-      { vpc: this.vpc, allowAllOutbound: true }
+      { vpc, allowAllOutbound: true }
     );
 
     const proxyVpcLink = new apigatewayv2.VpcLink(
       this,
       "OutgoingProxyVpcLink",
       {
-        vpc: this.vpc,
+        vpc: vpc,
         subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [vpcLinkSecurityGroup],
       }
@@ -331,6 +320,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createOutgoingProxyAlb(
+    vpc: ec2.Vpc,
     hostedZone: route53.HostedZone,
     sslCertificate: acm.Certificate,
     service: ecs.FargateService
@@ -340,7 +330,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const healthCheckPort = 5588;
 
     const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
-      vpc: this.vpc,
+      vpc,
       internetFacing: false,
     });
     new route53.ARecord(this, "OutgoingProxyInternal", {
@@ -391,25 +381,26 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
   }
 
-  private createEcsCluster() {
+  private createEcsCluster(vpc: ec2.Vpc) {
     return new ecs.Cluster(this, "SecurityServer", {
       clusterName: "SecurityServer",
-      vpc: this.vpc,
+      vpc,
     });
   }
 
-  private createNamespace() {
+  private createNamespace(vpc: ec2.Vpc) {
     return new servicediscovery.PrivateDnsNamespace(
       this,
       "SecurityServerNamespace",
       {
         name: "security-server",
-        vpc: this.vpc,
+        vpc,
       }
     );
   }
 
   private createPrimaryNode(
+    vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
     bastionHost: ec2.BastionHostLinux,
     ecsCluster: ecs.Cluster,
@@ -432,7 +423,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
-      vpc: this.vpc,
+      vpc,
       encrypted: true,
     });
     const volume = {
@@ -520,11 +511,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       ec2.Port.tcp(8080),
       "Allow access to the proxy"
     );
-
-    return ecsService;
   }
 
   private createSecondaryNodes(
+    vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
     ecsCluster: ecs.Cluster,
     xroadAdminCredentials: secretsmanager.ISecret,
@@ -589,7 +579,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
     service.connections.allowFrom(
-      ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
       ec2.Port.tcp(8443),
       "Allow access from the vpc to the outwards ssl proxy"
     );
@@ -641,7 +631,10 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
   }
 
-  private createDatabaseCluster(bastionHost: ec2.BastionHostLinux) {
+  private createDatabaseCluster(
+    vpc: ec2.Vpc,
+    bastionHost: ec2.BastionHostLinux
+  ) {
     const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
     const cluster = new rds.DatabaseCluster(
       this,
@@ -659,7 +652,7 @@ class XroadSecurityServerStack extends cdk.Stack {
             ec2.InstanceClass.T4G,
             ec2.InstanceSize.MEDIUM
           ),
-          vpc: this.vpc,
+          vpc,
           vpcSubnets: {
             subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
           },
@@ -672,9 +665,9 @@ class XroadSecurityServerStack extends cdk.Stack {
     return cluster;
   }
 
-  private createBastionHost() {
+  private createBastionHost(vpc: ec2.Vpc) {
     return new ec2.BastionHostLinux(this, "BastionHost", {
-      vpc: this.vpc,
+      vpc,
     });
   }
 
