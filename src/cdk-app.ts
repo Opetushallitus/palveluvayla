@@ -687,7 +687,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const l = new lambda.Function(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
       code: lambdaCodeFromAsset("certificate-validity-left-in-days"),
-      handler: "handler",
+      handler: "index.handler",
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: Duration.seconds(30),
