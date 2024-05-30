@@ -1,10 +1,11 @@
 const host = process.env.XROAD_API_HOST;
 const port = process.env.XROAD_API_PORT;
 const url = `https://${host}:${port}/api/v1/tokens`;
-const apiKey = getSecret("xroad-api-key");
-const authorization = `X-Road-ApiKey token=${apiKey}`;
 
 exports.handler = async () => {
+  const apiKey = await getSecret("xroad-api-key");
+  const authorization = `X-Road-ApiKey token=${apiKey}`;
+
   return fetch(url, {
     headers: {
       Authorization: authorization,
