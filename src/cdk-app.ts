@@ -731,6 +731,14 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     rule.addTarget(new event_targets.LambdaFunction(l));
 
+    l.logGroup.addMetricFilter("CertificateValidDaysLeft", {
+      metricNamespace: "Xroad",
+      metricName: "cetificate-valid-days-left",
+      filterPattern: logs.FilterPattern.exists("$.validDaysLeft"),
+      metricValue: "$.validDaysLeft",
+      dimensions: { label: "$.label", token: "$.token" },
+    });
+
     return l;
   }
 }
