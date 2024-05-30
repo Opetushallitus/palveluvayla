@@ -28,6 +28,12 @@ import * as event_targets from "aws-cdk-lib/aws-events-targets";
 
 type EnvName = "dev" | "qa" | "prod";
 
+const sharedLambdaDefaults = {
+  runtime: lambda.Runtime.NODEJS_20_X,
+  architecture: lambda.Architecture.ARM_64,
+  timeout: Duration.seconds(30),
+};
+
 class CdkApp extends cdk.App {
   constructor() {
     super();
@@ -63,12 +69,10 @@ class AlarmStack extends cdk.Stack {
 
   createAlarmsToSlackLambda() {
     const alarmsToSlack = new lambda.Function(this, "AlarmsToSlack", {
+      ...sharedLambdaDefaults,
       functionName: "alarms-to-slack",
       code: lambdaCodeFromAsset("alarms-to-slack"),
       handler: "alarms-to-slack.handler",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
-      timeout: Duration.seconds(30),
     });
 
     // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
@@ -170,9 +174,9 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
     return new lambda.Function(this, "MyFunction", {
+      ...sharedLambdaDefaults,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
       code: lambdaCodeFromAsset("apigateway-proxy"),
       timeout: Duration.seconds(35),
