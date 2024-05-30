@@ -64,7 +64,7 @@ class AlarmStack extends cdk.Stack {
   createAlarmsToSlackLambda() {
     const alarmsToSlack = new lambda.Function(this, "AlarmsToSlack", {
       functionName: "alarms-to-slack",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../alarms-to-slack")),
+      code: lambdaCodeFromAsset("alarms-to-slack"),
       handler: "alarms-to-slack.handler",
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -170,9 +170,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, "../lambda/apigateway-proxy")
-      ),
+      code: lambdaCodeFromAsset("apigateway-proxy"),
       timeout: Duration.seconds(35),
       environment: {
         ALB_HOST_NAME: `internal-proxy.${zoneName}`,
@@ -688,9 +686,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createCertificateValidityLeftInDaysLambda(vpc: ec2.Vpc) {
     const l = new lambda.Function(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, "../certificate-validity-left-in-days")
-      ),
+      code: lambdaCodeFromAsset("certificate-validity-left-in-days"),
       handler: "handler",
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -725,6 +721,10 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     return l;
   }
+}
+
+function lambdaCodeFromAsset(lambdaName: string) {
+  return lambda.Code.fromAsset(path.join(__dirname, "../lambda", lambdaName));
 }
 
 const app = new CdkApp();
