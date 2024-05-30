@@ -93,6 +93,7 @@ class AlarmStack extends cdk.Stack {
 class XroadSecurityServerStack extends cdk.Stack {
   private readonly adminUiPort = 4000;
   private readonly privateDnsNamespace = "security-server";
+  private readonly primaryNodeHostName = "primary-node";
 
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -487,7 +488,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       desiredCount: 1,
       enableExecuteCommand: true,
       cloudMapOptions: {
-        name: "primary-node",
+        name: this.primaryNodeHostName,
         cloudMapNamespace: namespace,
         dnsRecordType: servicediscovery.DnsRecordType.A,
         dnsTtl: cdk.Duration.seconds(10),
