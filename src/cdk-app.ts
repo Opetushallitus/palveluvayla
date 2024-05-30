@@ -92,6 +92,7 @@ class AlarmStack extends cdk.Stack {
 
 class XroadSecurityServerStack extends cdk.Stack {
   private readonly adminUiPort = 4000;
+  private readonly privateDnsNamespace = "security-server";
 
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
@@ -396,12 +397,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       this,
       "SecurityServerNamespace",
       {
-        name: "security-server",
+        name: this.privateDnsNamespace,
         vpc,
       }
     );
   }
-
   private createPrimaryNode(
     vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
