@@ -4,7 +4,6 @@ const url = `https://${host}:${port}/api/v1/tokens`;
 
 exports.handler = async () => {
   return fetchTokens()
-    .then((response) => response.json())
     .then((tokens) =>
       tokens.map(toCertificatesWithLongestValidDaysLeft).flat()
     )
