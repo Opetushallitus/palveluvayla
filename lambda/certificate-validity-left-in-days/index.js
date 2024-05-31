@@ -44,23 +44,23 @@ function inDescendingOrder(a, b) {
   return b - a;
 }
 
-function isRegistered(certificate) {
-  return certificate.status === "REGISTERED";
-}
-
-function longestValidityTimeOfARegisteredCertifcate(key) {
+function longestValidityTimeOfAnUsableCertifcate(key) {
   const sorted = key.certificates
-    .filter(isRegistered)
+    .filter(isUsableCertificate)
     .map(toValidDaysLeft)
     .sort(inDescendingOrder);
   return sorted.length > 0 ? sorted[0] : 0;
+}
+
+function isUsableCertificate(certificate) {
+    return certificate.status === "REGISTERED" && certificate.ocsp_status === "OCSP_RESPONSE_GOOD";
 }
 
 function extracted(token) {
   return (key) => ({
     token: token.name,
     label: key.label,
-    validDaysLeft: longestValidityTimeOfARegisteredCertifcate(key),
+    validDaysLeft: longestValidityTimeOfAnUsableCertifcate(key),
   });
 }
 
