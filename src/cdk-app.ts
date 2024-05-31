@@ -707,7 +707,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createCertificateValidityLeftInDaysLambda(
     vpc: ec2.Vpc,
-    alarmTopic: ITopic
+    alarmTopic: sns.ITopic
   ) {
     const l = new lambda.Function(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
