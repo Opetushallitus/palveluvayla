@@ -3,14 +3,7 @@ const port = process.env.XROAD_API_PORT;
 const url = `https://${host}:${port}/api/v1/tokens`;
 
 exports.handler = async () => {
-  const apiKey = await getSecret("xroad-api-key");
-  const authorization = `X-Road-ApiKey token=${apiKey}`;
-
-  return fetch(url, {
-    headers: {
-      Authorization: authorization,
-    },
-  })
+  return fetchTokens()
     .then((response) => response.json())
     .then((tokens) =>
       tokens.map(toCertificatesWithLongestValidDaysLeft).flat()
@@ -19,6 +12,19 @@ exports.handler = async () => {
       items.forEach((item) => console.log(JSON.stringify(item)))
     );
 };
+
+async function fetchTokens() {
+    const apiKey = await getSecret("xroad-api-key");
+    const authorization = `X-Road-ApiKey token=${apiKey}`;
+    const response = await fetch(url, {
+        headers: {
+            Authorization: authorization,
+        },
+    })
+    const tokens = await response.json()
+    console.log(`Got tokens from security server: ${JSON.stringify(tokens, null, 2)}`)
+    return tokens
+}
 
 function toValidDaysLeft(certificate) {
   const now = Date.now();
