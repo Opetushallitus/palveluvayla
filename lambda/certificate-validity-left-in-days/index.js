@@ -13,43 +13,41 @@ exports.handler = async () => {
   })
     .then((response) => response.json())
     .then((tokens) =>
-      tokens.map(toCertificatesWithLongestValidDaysLeft()).flat()
+      tokens.map(toCertificatesWithLongestValidDaysLeft).flat()
     )
     .then((items) =>
       items.forEach((item) => console.log(JSON.stringify(item)))
     );
 };
 
-function toValidDaysLeft() {
-  return (certificate) => {
-    const now = Date.now();
-    const notValidBeforeInMillis = Date.parse(
-      certificate.certificate_details.not_before
-    );
-    const notValidAfterInMillis = Date.parse(
-      certificate.certificate_details.not_after
-    );
-    const validMillisLeft =
-      notValidBeforeInMillis > now ? 0 : notValidAfterInMillis - now;
-    const validDaysLeft = Math.floor(validMillisLeft / 1000 / 60 / 60 / 24);
+function toValidDaysLeft(certificate) {
+  const now = Date.now();
+  const notValidBeforeInMillis = Date.parse(
+    certificate.certificate_details.not_before
+  );
+  const notValidAfterInMillis = Date.parse(
+    certificate.certificate_details.not_after
+  );
+  const validMillisLeft =
+    notValidBeforeInMillis > now ? 0 : notValidAfterInMillis - now;
+  const validDaysLeft = Math.floor(validMillisLeft / 1000 / 60 / 60 / 24);
 
-    return validDaysLeft > 0 ? validDaysLeft : 0;
-  };
+  return validDaysLeft > 0 ? validDaysLeft : 0;
 }
 
-function inDescendingOrder() {
-  return (a, b) => b - a;
+function inDescendingOrder(a, b) {
+  return b - a;
 }
 
-function isRegistered() {
-  return (certificate) => certificate.status === "REGISTERED";
+function isRegistered(certificate) {
+  return certificate.status === "REGISTERED";
 }
 
 function longestValidityTimeOfARegisteredCertifcate(key) {
   const sorted = key.certificates
-    .filter(isRegistered())
-    .map(toValidDaysLeft())
-    .sort(inDescendingOrder());
+    .filter(isRegistered)
+    .map(toValidDaysLeft)
+    .sort(inDescendingOrder);
   return sorted.length > 0 ? sorted[0] : 0;
 }
 
@@ -61,8 +59,8 @@ function extracted(token) {
   });
 }
 
-function toCertificatesWithLongestValidDaysLeft() {
-  return (token) => token.keys.map(extracted(token));
+function toCertificatesWithLongestValidDaysLeft(token) {
+  return token.keys.map(extracted(token));
 }
 
 async function getSecret(secretId) {
