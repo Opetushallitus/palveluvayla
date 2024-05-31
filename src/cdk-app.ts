@@ -25,6 +25,8 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import { Duration } from "aws-cdk-lib";
 import * as events from "aws-cdk-lib/aws-events";
 import * as event_targets from "aws-cdk-lib/aws-events-targets";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cloudwatch_actions from "aws-cdk-lib/aws-cloudwatch-actions";
 
 type EnvName = "dev" | "qa" | "prod";
 
@@ -44,19 +46,24 @@ class CdkApp extends cdk.App {
       },
     };
 
-    new AlarmStack(this, "AlarmStack", stackProps);
-    new XroadSecurityServerStack(this, "XroadSecurityServerStack", stackProps);
+    const alarmStack = new AlarmStack(this, "AlarmStack", stackProps);
+    new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
+      ...stackProps,
+      alarmTopic: alarmStack.alarmTopic,
+    });
   }
 }
 
 class AlarmStack extends cdk.Stack {
+  public readonly alarmTopic;
+
   constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
 
     const alarmsToSlackLambda = this.createAlarmsToSlackLambda();
-    const alarmTopic = this.createAlarmTopic();
+    this.alarmTopic = this.createAlarmTopic();
 
-    alarmTopic.addSubscription(
+    this.alarmTopic.addSubscription(
       new subscriptions.LambdaSubscription(alarmsToSlackLambda)
     );
   }
@@ -94,12 +101,20 @@ class AlarmStack extends cdk.Stack {
   }
 }
 
+interface XroadSecurityServerStackProps extends cdk.StackProps {
+  alarmTopic: sns.ITopic;
+}
+
 class XroadSecurityServerStack extends cdk.Stack {
   private readonly adminUiPort = 4000;
   private readonly privateDnsNamespace = "security-server";
   private readonly primaryNodeHostName = "primary-node";
 
-  constructor(scope: constructs.Construct, id: string, props: cdk.StackProps) {
+  constructor(
+    scope: constructs.Construct,
+    id: string,
+    props: XroadSecurityServerStackProps
+  ) {
     super(scope, id, props);
 
     const inIpAddresses = this.createInIpAddresses();
@@ -157,7 +172,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate
     );
     const certificateValidityLambda =
-      this.createCertificateValidityLeftInDaysLambda(vpc);
+      this.createCertificateValidityLeftInDaysLambda(vpc, props.alarmTopic);
     this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -690,7 +705,10 @@ class XroadSecurityServerStack extends cdk.Stack {
     return `oph${part}01`;
   }
 
-  private createCertificateValidityLeftInDaysLambda(vpc: ec2.Vpc) {
+  private createCertificateValidityLeftInDaysLambda(
+    vpc: ec2.Vpc,
+    alarmTopic: ITopic
+  ) {
     const l = new lambda.Function(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
       code: lambdaCodeFromAsset("certificate-validity-left-in-days"),
@@ -731,13 +749,61 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     rule.addTarget(new event_targets.LambdaFunction(l));
 
-    l.logGroup.addMetricFilter("CertificateValidDaysLeft", {
-      metricNamespace: "Xroad",
-      metricName: "cetificate-valid-days-left",
-      filterPattern: logs.FilterPattern.exists("$.validDaysLeft"),
-      metricValue: "$.validDaysLeft",
-      dimensions: { label: "$.label", token: "$.token" },
-    });
+    const metricNamespace = "Xroad";
+    const metricName = "cetificate-valid-days-left";
+
+    const metricFilter = l.logGroup.addMetricFilter(
+      "CertificateValidDaysLeft",
+      {
+        metricNamespace,
+        metricName,
+        filterPattern: logs.FilterPattern.exists("$.validDaysLeft"),
+        metricValue: "$.validDaysLeft",
+        dimensions: { label: "$.label", token: "$.token" },
+      }
+    );
+
+    new cloudwatch.Alarm(
+      this,
+      "AuthenticationCertificateExpiringInLessThan30Days",
+      {
+        alarmName: "authentication-certificate-expiring-in-less-than-30-days",
+        alarmDescription:
+          "Liityntäpalvelimen tunnistus varmenne vanhenee alle 30 päivän päästä. Katso ohjeet https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592bd1c103f6d100018db5c7",
+        metric: metricFilter.metric().with({
+          statistic: "Minimum",
+          period: cdk.Duration.minutes(10),
+          dimensionsMap: {
+            token: "softToken-0",
+            label: "Server Authentication Key",
+          },
+        }),
+        threshold: 30,
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+        actionsEnabled: true,
+      }
+    ).addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+
+    new cloudwatch.Alarm(this, "SigningCertificateExpiringInLessThan30Days", {
+      alarmName: "signing-certificate-expiring-in-less-than-30-days",
+      alarmDescription:
+        "Liityntäpalvelimen allerkirjoitus varmenne vanhenee alle 30 päivän päästä. Katso ohjeet https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592bd1c103f6d100018db5c7",
+      metric: metricFilter.metric().with({
+        statistic: "Minimum",
+        period: cdk.Duration.minutes(10),
+        dimensionsMap: {
+          token: "softToken-0",
+          label: "Server Owner Signing Key",
+        },
+      }),
+      threshold: 30,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+      actionsEnabled: true,
+    }).addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
 
     return l;
   }
