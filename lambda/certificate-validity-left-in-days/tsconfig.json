@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "module": "commonjs",
     "target": "es2022",
     "strict": true,
     "sourceMap": true,
