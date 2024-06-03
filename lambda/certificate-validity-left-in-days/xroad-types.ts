@@ -1,3 +1,5 @@
+// Source: https://raw.githubusercontent.com/nordic-institute/X-Road/a14f2564ba36ab64e66d8d3a63f1f050310cc953/src/proxy-ui-api/src/main/resources/openapi-definition.yaml
+
 export type Token = {
   id: string
   name: string
