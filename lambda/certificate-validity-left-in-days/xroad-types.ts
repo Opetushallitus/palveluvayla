@@ -1,9 +1,26 @@
 export type Token = {
   id: string
   name: string
-  type: "SOFTWARE" | "HARDWARE"
+  type: TokenType
   keys: Key[]
+  status: TokenStatus
+  logged_in: boolean
+  available: boolean
+  saved_to_configuration: boolean
+  read_only: boolean
+  serial_number: string
+  token_infos: KeyValuePair[]
+  possilbe_actions: PossibleAction[]
 }
+
+export type TokenType = "SOFTWARE" | "HARDWARE"
+
+export type KeyValuePair = {
+  key: string
+  value: string
+}
+
+export type TokenStatus = "OK" | "USER_PIN_LOCKED" | "USER_PIN_INCORRECT" | "USER_PIN_INVALID" | "USER_PIN_EXPIRED" | "USER_PIN_COUNT_LOW" | "USER_PIN_FINAL_TRY" | "NOT_INITIALIZED"
 
 export type Key = {
   id: string
