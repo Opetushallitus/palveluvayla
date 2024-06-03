@@ -1,5 +1,7 @@
-const host = process.env.XROAD_API_HOST;
-const port = process.env.XROAD_API_PORT;
+import * as xroad from "./xroad-types";
+
+const host: string = process.env.XROAD_API_HOST!;
+const port: string = process.env.XROAD_API_PORT!;
 const url = `https://${host}:${port}/api/v1/tokens`;
 
 exports.handler = async () => {
@@ -12,7 +14,7 @@ exports.handler = async () => {
     );
 };
 
-async function fetchTokens() {
+async function fetchTokens(): Promise<xroad.Token[]> {
     const apiKey = await getSecret("xroad-api-key");
     const authorization = `X-Road-ApiKey token=${apiKey}`;
     const response = await fetch(url, {
@@ -20,12 +22,12 @@ async function fetchTokens() {
             Authorization: authorization,
         },
     })
-    const tokens = await response.json()
+    const tokens: xroad.Token[] = await response.json()
     console.log(`Got tokens from security server: ${JSON.stringify(tokens, null, 2)}`)
     return tokens
 }
 
-function toValidDaysLeft(certificate) {
+function toValidDaysLeft(certificate: xroad.TokenCertificate) {
   const now = Date.now();
   const notValidBeforeInMillis = Date.parse(
     certificate.certificate_details.not_before
@@ -40,11 +42,11 @@ function toValidDaysLeft(certificate) {
   return validDaysLeft > 0 ? validDaysLeft : 0;
 }
 
-function inDescendingOrder(a, b) {
+function inDescendingOrder(a: number, b: number): number {
   return b - a;
 }
 
-function longestValidityTimeOfAnUsableCertifcate(key) {
+function longestValidityTimeOfAnUsableCertifcate(key: xroad.Key): number {
   const sorted = key.certificates
     .filter(isUsableCertificate)
     .map(toValidDaysLeft)
@@ -52,29 +54,29 @@ function longestValidityTimeOfAnUsableCertifcate(key) {
   return sorted.length > 0 ? sorted[0] : 0;
 }
 
-function isUsableCertificate(certificate) {
+function isUsableCertificate(certificate: xroad.TokenCertificate): boolean {
     return certificate.status === "REGISTERED" && certificate.ocsp_status === "OCSP_RESPONSE_GOOD";
 }
 
-function extracted(token) {
-  return (key) => ({
+function extracted(token: xroad.Token) {
+  return (key: xroad.Key) => ({
     token: token.name,
     label: key.label,
     validDaysLeft: longestValidityTimeOfAnUsableCertifcate(key),
   });
 }
 
-function toCertificatesWithLongestValidDaysLeft(token) {
+function toCertificatesWithLongestValidDaysLeft(token: xroad.Token) {
   return token.keys.map(extracted(token));
 }
 
-async function getSecret(secretId) {
+async function getSecret(secretId: string): Promise<string> {
   // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
   const secretsExtensionHttpPort = 2773;
   const secretsExtensionEdpoint = `http://localhost:${secretsExtensionHttpPort}/secretsmanager/get?secretId=${secretId}&withDecryption=true`;
   const response = await fetch(secretsExtensionEdpoint, {
     headers: {
-      "X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
+      "X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN!,
     },
   });
 

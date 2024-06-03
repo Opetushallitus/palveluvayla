@@ -37,6 +37,9 @@ function deploy_util {
 
 function deploy_env {
   local -r env="$1"
+
+  build_lambdas
+
   if ! is_running_on_codebuild; then
     export_aws_credentials "util"
     local -r accountId=$(get_aws_account_id_of_env "${env}")
@@ -46,6 +49,12 @@ function deploy_env {
   fi
   login_to_docker_if_possible
   npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
+}
+
+function build_lambdas {
+  pushd "$repo/lambda/certificate-validity-left-in-days"
+  npm exec tsc
+  popd
 }
 
 function login_to_docker_if_possible {

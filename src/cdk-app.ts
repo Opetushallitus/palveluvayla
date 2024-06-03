@@ -722,6 +722,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         XROAD_API_HOST: `${this.primaryNodeHostName}.${this.privateDnsNamespace}`,
         XROAD_API_PORT: `${this.adminUiPort}`,
         NODE_TLS_REJECT_UNAUTHORIZED: "0",
+        NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
