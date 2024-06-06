@@ -764,7 +764,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
 
-    new cloudwatch.Alarm(
+    const authenticationCertificateAlarm = new cloudwatch.Alarm(
       this,
       "AuthenticationCertificateExpiringInLessThan30Days",
       {
@@ -785,9 +785,9 @@ class XroadSecurityServerStack extends cdk.Stack {
         treatMissingData: cloudwatch.TreatMissingData.BREACHING,
         actionsEnabled: true,
       }
-    ).addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    );
 
-    new cloudwatch.Alarm(this, "SigningCertificateExpiringInLessThan30Days", {
+    const signingCertificateAlarm = new cloudwatch.Alarm(this, "SigningCertificateExpiringInLessThan30Days", {
       alarmName: "signing-certificate-expiring-in-less-than-30-days",
       alarmDescription:
         "Liityntäpalvelimen allerkirjoitus varmenne vanhenee alle 30 päivän päästä. Katso ohjeet https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592bd1c103f6d100018db5c7",
@@ -804,7 +804,12 @@ class XroadSecurityServerStack extends cdk.Stack {
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.BREACHING,
       actionsEnabled: true,
-    }).addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    });
+
+    [authenticationCertificateAlarm, signingCertificateAlarm].forEach(alarm => {
+      alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      alarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    });
 
     return l;
   }
