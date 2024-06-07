@@ -1,10 +1,12 @@
-const url = require("url");
-const https = require("https");
+import * as url from "url";
+import * as https from "https";
+import * as http from "http";
+import * as lambda from "aws-lambda"
 
 const COLOR_GREEN = "#36a64f";
 const COLOR_RED = "#a63636";
 
-exports.handler = async (event, context) => {
+exports.handler = async (event: lambda.SNSEvent, context: lambda.Context): Promise<void> => {
   const message = JSON.parse(event.Records[0].Sns.Message);
   const alarmName = message.AlarmName;
   const newState = message.NewStateValue;
@@ -20,9 +22,9 @@ exports.handler = async (event, context) => {
     mkSlackMessage(slackMessage, color),
   );
 
-  if (response.statusCode < 400) {
+  if (response.statusCode && response.statusCode < 400) {
     console.log("Message posted successfully");
-  } else if (response.statusCode < 500) {
+  } else if (response.statusCode && response.statusCode < 500) {
     fail(
       `Error posting message to Slack API: ${response.statusCode} - ${response.statusMessage}`,
     );
@@ -33,20 +35,29 @@ exports.handler = async (event, context) => {
   }
 };
 
-async function postMessage(slackWebhook, message) {
+type WebhookResponse = {
+  body: string
+  statusCode?: number
+  statusMessage?: string
+}
+
+async function postMessage(slackWebhook: string, message: WebhookRequest): Promise<WebhookResponse> {
   const body = JSON.stringify(message);
   const options = url.parse(slackWebhook);
-  options.method = "POST";
-  options.headers = {
-    "Content-Type": "application/json",
-    "Content-Length": Buffer.byteLength(body),
-  };
+  const requestOptions: https.RequestOptions = {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+    }
+  }
 
-  return await new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      const chunks = [];
+  return await new Promise<WebhookResponse>((resolve, reject): void => {
+    const req = https.request(requestOptions, (res: http.IncomingMessage) => {
+      const chunks: string[] = [];
       res.setEncoding("utf8");
-      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("data", (chunk: string) => chunks.push(chunk));
       res.on("end", () => {
         const body = chunks.join("");
         resolve({
@@ -64,7 +75,16 @@ async function postMessage(slackWebhook, message) {
   });
 }
 
-function mkSlackMessage(errorText, color) {
+type WebhookRequest = {
+  attachments: SlackAttachment[]
+}
+
+type SlackAttachment = {
+  color: string
+  text: string
+}
+
+function mkSlackMessage(errorText: string, color: string): WebhookRequest {
   // https://api.slack.com/messaging/attachments-to-blocks#direct_equivalents
   return {
     attachments: [
@@ -80,18 +100,18 @@ const secretId = "slack-webhook";
 const secretsExtensionHttpPort = 2773;
 const secretsExtensionEdpoint = `http://localhost:${secretsExtensionHttpPort}/secretsmanager/get?secretId=${secretId}&withDecryption=true`;
 
-async function getWebhook() {
+async function getWebhook(): Promise<string> {
   // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
   const response = await fetch(secretsExtensionEdpoint, {
     headers: {
-      "X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
+      "X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN!,
     },
   });
 
   return response.json().then((j) => j.SecretString);
 }
 
-function fail(message) {
+function fail(message: string): void {
   console.log(message);
   throw new Error(message);
 }

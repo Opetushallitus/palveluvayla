@@ -38,8 +38,6 @@ function deploy_util {
 function deploy_env {
   local -r env="$1"
 
-  build_lambdas
-
   if ! is_running_on_codebuild; then
     export_aws_credentials "util"
     local -r accountId=$(get_aws_account_id_of_env "${env}")
@@ -49,12 +47,6 @@ function deploy_env {
   fi
   login_to_docker_if_possible
   npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
-}
-
-function build_lambdas {
-  pushd "$repo/lambda/certificate-validity-left-in-days"
-  npm exec tsc
-  popd
 }
 
 function login_to_docker_if_possible {
@@ -138,8 +130,15 @@ function npm_ci_if_package_lock_has_changed {
     npm ci
     shasum package-lock.json >"$checksum_file"
   }
+  function run_npm_install {
+    npm install
+    shasum package-lock.json >"$checksum_file"
+  }
 
-  if [ ! -f "$checksum_file" ]; then
+  if [ ! -f "package-lock.json" ]; then
+    info "No package-lock.json found; running npm install"
+    run_npm_install
+  elif [ ! -f "$checksum_file" ]; then
     echo "new package-lock.json; running npm ci"
     run_npm_ci
   elif ! shasum --check "$checksum_file"; then

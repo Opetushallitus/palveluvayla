@@ -20,6 +20,7 @@ import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import { Duration } from "aws-cdk-lib";
@@ -75,11 +76,11 @@ class AlarmStack extends cdk.Stack {
   }
 
   createAlarmsToSlackLambda() {
-    const alarmsToSlack = new lambda.Function(this, "AlarmsToSlack", {
+    const alarmsToSlack = new nodejs.NodejsFunction(this, "AlarmsToSlack", {
       ...sharedLambdaDefaults,
       functionName: "alarms-to-slack",
-      code: lambdaCodeFromAsset("alarms-to-slack"),
-      handler: "alarms-to-slack.handler",
+      entry: path.join(__dirname, "../lambda/alarms-to-slack/alarms-to-slack.ts"),
+      bundling: { sourceMap: true }
     });
 
     // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
@@ -188,12 +189,12 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 
   private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
-    return new lambda.Function(this, "MyFunction", {
+    return new nodejs.NodejsFunction(this, "MyFunction", {
       ...sharedLambdaDefaults,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      handler: "index.handler",
-      code: lambdaCodeFromAsset("apigateway-proxy"),
+      entry: path.join(__dirname, "../lambda/apigateway-proxy/index.ts"),
+      bundling: { sourceMap: true },
       timeout: Duration.seconds(35),
       environment: {
         ALB_HOST_NAME: `internal-proxy.${zoneName}`,
@@ -709,10 +710,10 @@ class XroadSecurityServerStack extends cdk.Stack {
     vpc: ec2.Vpc,
     alarmTopic: sns.ITopic
   ) {
-    const l = new lambda.Function(this, "certificateValidityLeftInDays", {
+    const l = new nodejs.NodejsFunction(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
-      code: lambdaCodeFromAsset("certificate-validity-left-in-days"),
-      handler: "index.handler",
+      entry: path.join(__dirname, "../lambda/certificate-validity-left-in-days/index.ts"),
+      bundling: { sourceMap: true },
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: Duration.seconds(30),
