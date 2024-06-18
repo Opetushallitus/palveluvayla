@@ -14,6 +14,6 @@
     "aws-cdk-lib": "^2.110.1",
     "constructs": "^10.2.21",
     "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.2"
   }
 }
