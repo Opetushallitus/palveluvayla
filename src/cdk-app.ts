@@ -22,7 +22,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
-import { Duration } from "aws-cdk-lib";
 import * as events from "aws-cdk-lib/aws-events";
 import * as event_targets from "aws-cdk-lib/aws-events-targets";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
@@ -33,7 +32,7 @@ type EnvName = "dev" | "qa" | "prod";
 const sharedLambdaDefaults = {
   runtime: lambda.Runtime.NODEJS_20_X,
   architecture: lambda.Architecture.ARM_64,
-  timeout: Duration.seconds(30),
+  timeout: cdk.Duration.seconds(30),
 };
 
 class CdkApp extends cdk.App {
@@ -194,7 +193,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       entry: path.join(__dirname, "../lambda/apigateway-proxy/index.ts"),
       bundling: { sourceMap: true },
-      timeout: Duration.seconds(35),
+      timeout: cdk.Duration.seconds(35),
       environment: {
         ALB_HOST_NAME: `internal-proxy.${zoneName}`,
       },
@@ -716,7 +715,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       bundling: { sourceMap: true },
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
-      timeout: Duration.seconds(30),
+      timeout: cdk.Duration.seconds(30),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
@@ -746,7 +745,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       this,
       "LogXroadCertificateValidityEveryFiveMinutes",
       {
-        schedule: events.Schedule.rate(Duration.minutes(5)),
+        schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
       }
     );
     rule.addTarget(new event_targets.LambdaFunction(l));
