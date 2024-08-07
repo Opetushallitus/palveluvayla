@@ -13,10 +13,9 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
-import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
-import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
-import * as apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
-import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
+import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as apigatewayv2_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import * as apigatewayv2_authorizers from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -272,7 +271,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         proxyLambda
       );
 
-    const authorizer = new HttpIamAuthorizer();
+    const authorizer = new apigatewayv2_authorizers.HttpIamAuthorizer();
     const dnsName = `proxy.${zoneName}`;
     const domainName = new apigatewayv2.DomainName(
       this,
@@ -319,7 +318,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     httpRoute.grantInvoke(invokeRole);
 
-    const stage = httpApi.defaultStage!.node.defaultChild as CfnStage;
+    const stage = httpApi.defaultStage!.node
+      .defaultChild as apigatewayv2.CfnStage;
     const logGroup = new logs.LogGroup(httpApi, "AccessLogs", {
       retention: 90,
     });
