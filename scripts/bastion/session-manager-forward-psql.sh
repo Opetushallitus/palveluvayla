@@ -13,7 +13,7 @@ function main {
   local postgres_host="$(aws rds describe-db-clusters --output text --query "DBClusters[0].Endpoint")"
 
   local xroad_secondary_node="$(aws elbv2 describe-load-balancers --output text \
-     --query "LoadBalancers[?Scheme == 'internal'].DNSName")"
+     --query "LoadBalancers[?Type== 'application'].DNSName")"
 
   local xroad_primary_node="primary-node.security-server"
 
