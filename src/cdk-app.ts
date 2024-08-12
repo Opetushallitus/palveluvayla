@@ -77,8 +77,11 @@ class AlarmStack extends cdk.Stack {
     const alarmsToSlack = new nodejs.NodejsFunction(this, "AlarmsToSlack", {
       ...sharedLambdaDefaults,
       functionName: "alarms-to-slack",
-      entry: path.join(__dirname, "../lambda/alarms-to-slack/alarms-to-slack.ts"),
-      bundling: { sourceMap: true }
+      entry: path.join(
+        __dirname,
+        "../lambda/alarms-to-slack/alarms-to-slack.ts"
+      ),
+      bundling: { sourceMap: true },
     });
 
     // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
@@ -112,6 +115,8 @@ class XroadSecurityServerStack extends cdk.Stack {
     healthCheck: 5588,
     ssh: 22,
     alb: 443,
+    messageExchange: 5500,
+    ocspResponse: 5577,
   };
 
   private readonly privateDnsNamespace = "security-server";
@@ -169,6 +174,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       sslCertificate,
       secondaryNodes
     );
+    const nlb = this.createIncomingProxyNlb(vpc, inIpAddresses, secondaryNodes);
+
     const proxyLambda = this.createOutgoingProxyLambda(vpc, zoneName);
     this.createApiGateway(
       vpc,
@@ -349,6 +356,106 @@ class XroadSecurityServerStack extends cdk.Stack {
     logGroup.grantWrite(new iam.ServicePrincipal("apigateway.amazonaws.com"));
 
     return httpApi;
+  }
+
+  private createIncomingProxyNlb(
+    vpc: ec2.Vpc,
+    ipAddresses: Array<ec2.CfnEIP>,
+    secondaryNodes: ecs.FargateService
+  ) {
+    const securityGroup = new ec2.SecurityGroup(
+      this,
+      "IncomingProxySecurityGroup",
+      {
+        vpc,
+      }
+    );
+    const nlb = new elbv2.NetworkLoadBalancer(this, "IncomingProxy", {
+      vpc,
+      securityGroups: [securityGroup],
+      internetFacing: true,
+    });
+    const cfnNlb = nlb.node.defaultChild as elbv2.CfnLoadBalancer;
+    cfnNlb.addDeletionOverride("Properties.Subnets");
+    cfnNlb.subnetMappings = [
+      {
+        allocationId: ipAddresses[0].attrAllocationId,
+        subnetId: vpc.publicSubnets[0].subnetId,
+      },
+      {
+        allocationId: ipAddresses[1].attrAllocationId,
+        subnetId: vpc.publicSubnets[1].subnetId,
+      },
+    ];
+
+    nlb
+      .addListener("MessageExchangeListener", {
+        port: this.ports.messageExchange,
+      })
+      .addTargets("MessageExchangeListenerTargets", {
+        targetGroupName: "MessageExchangeListenerTargets",
+        port: this.ports.messageExchange,
+        targets: [
+          secondaryNodes.loadBalancerTarget({
+            containerName: "SecondaryNode",
+            containerPort: this.ports.messageExchange,
+          }),
+        ],
+        healthCheck: {
+          interval: cdk.Duration.seconds(60),
+          timeout: cdk.Duration.seconds(5),
+          protocol: elbv2.Protocol.HTTP,
+          port: `${this.ports.healthCheck}`,
+        },
+      });
+    nlb.connections.allowFrom(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(this.ports.messageExchange)
+    );
+    secondaryNodes.connections.allowFrom(
+      nlb,
+      ec2.Port.tcp(this.ports.messageExchange),
+      "Allow connections from nlb to message exchange port"
+    );
+
+    nlb
+      .addListener("OCSPResponderListener", {
+        port: this.ports.ocspResponse,
+      })
+      .addTargets("OCSPResponderListenerTargets", {
+        targetGroupName: "OCSPResponderListenerTargets",
+        port: this.ports.ocspResponse,
+        targets: [
+          secondaryNodes.loadBalancerTarget({
+            containerName: "SecondaryNode",
+            containerPort: this.ports.ocspResponse,
+          }),
+        ],
+        healthCheck: {
+          interval: cdk.Duration.seconds(60),
+          timeout: cdk.Duration.seconds(5),
+          protocol: elbv2.Protocol.HTTP,
+          port: `${this.ports.healthCheck}`,
+        },
+      });
+
+    nlb.connections.allowFrom(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(this.ports.ocspResponse)
+    );
+    secondaryNodes.connections.allowFrom(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(this.ports.ocspResponse),
+      "Allow connections from nlb to ocsp response port"
+    );
+
+    secondaryNodes.connections.allowFrom(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(this.ports.healthCheck),
+      "Allow connections from nlb to health check port"
+    );
+
+    return nlb;
   }
 
   private createOutgoingProxyAlb(
@@ -608,6 +715,12 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: this.ports.healthCheck,
         },
+        {
+          containerPort: this.ports.messageExchange,
+        },
+        {
+          containerPort: this.ports.ocspResponse,
+        },
       ],
     });
 
@@ -722,7 +835,10 @@ class XroadSecurityServerStack extends cdk.Stack {
   ) {
     const l = new nodejs.NodejsFunction(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
-      entry: path.join(__dirname, "../lambda/certificate-validity-left-in-days/index.ts"),
+      entry: path.join(
+        __dirname,
+        "../lambda/certificate-validity-left-in-days/index.ts"
+      ),
       bundling: { sourceMap: true },
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -798,29 +914,35 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
 
-    const signingCertificateAlarm = new cloudwatch.Alarm(this, "SigningCertificateExpiringInLessThan30Days", {
-      alarmName: "signing-certificate-expiring-in-less-than-30-days",
-      alarmDescription:
-        "Liityntäpalvelimen allerkirjoitus varmenne vanhenee alle 30 päivän päästä. Katso ohjeet https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592bd1c103f6d100018db5c7",
-      metric: metricFilter.metric().with({
-        statistic: "Minimum",
-        period: cdk.Duration.minutes(10),
-        dimensionsMap: {
-          token: "softToken-0",
-          label: "Server Owner Signing Key",
-        },
-      }),
-      threshold: 30,
-      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-      evaluationPeriods: 1,
-      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
-      actionsEnabled: true,
-    });
+    const signingCertificateAlarm = new cloudwatch.Alarm(
+      this,
+      "SigningCertificateExpiringInLessThan30Days",
+      {
+        alarmName: "signing-certificate-expiring-in-less-than-30-days",
+        alarmDescription:
+          "Liityntäpalvelimen allerkirjoitus varmenne vanhenee alle 30 päivän päästä. Katso ohjeet https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592bd1c103f6d100018db5c7",
+        metric: metricFilter.metric().with({
+          statistic: "Minimum",
+          period: cdk.Duration.minutes(10),
+          dimensionsMap: {
+            token: "softToken-0",
+            label: "Server Owner Signing Key",
+          },
+        }),
+        threshold: 30,
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+        actionsEnabled: true,
+      }
+    );
 
-    [authenticationCertificateAlarm, signingCertificateAlarm].forEach(alarm => {
-      alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
-      alarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
-    });
+    [authenticationCertificateAlarm, signingCertificateAlarm].forEach(
+      (alarm) => {
+        alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+        alarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      }
+    );
 
     return l;
   }
