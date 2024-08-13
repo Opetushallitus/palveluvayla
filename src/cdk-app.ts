@@ -491,7 +491,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       portMappings: [
         {
           containerPort: this.adminUiPort,
-          hostPort: this.adminUiPort,
         },
       ],
     });
@@ -595,7 +594,6 @@ class XroadSecurityServerStack extends cdk.Stack {
       portMappings: [
         {
           containerPort: 8080,
-          hostPort: 8080,
         },
       ],
     });
