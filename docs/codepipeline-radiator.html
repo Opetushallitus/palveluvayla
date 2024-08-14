@@ -66,36 +66,50 @@
          region: region
      });
 
-     function updatePipelines() {
+     function group(pipelines) {
+         const groupFn = pipeline => pipeline.name.split("Deploy")[0] || "yleiskayttoiset-palvelut"
+         return Object.groupBy(pipelines, groupFn)
+     }
+     function sortableName(x) {
+         return x.replace("Dev", "1").replace("Qa", "2").replace("Prod", "3");
+     }
+     async function updatePipelines() {
          let codepipeline = new AWS.CodePipeline();
-         codepipeline.listPipelines({}, function(err, data) {
-             if (err) {
-                 console.log(err, err.stack);
-             } else {
-                 data.pipelines.forEach(function(pipeline) {
-                     codepipeline.getPipelineState({name: pipeline.name}, function(err, data) {
-                         if (err) {
-                             console.log(err, err.stack);
-                         } else {
-                             var pipelineState = data.stageStates.map(function(stage) {
-                                 return stage.latestExecution.status;
-                             }).reduce(function(a, b) {
-                                 return a === 'Failed' || b === 'Failed' ? 'Failed' : a === 'InProgress' || b === 'InProgress' ? 'InProgress' : 'Succeeded';
-                             });
-                             let card = document.getElementById(pipeline.name);
-                             if (card) {
-                                 card.className = 'card ' + pipelineState;
-                             } else {
-                                 document.body.appendChild(createCard(
-                                     pipeline,
-                                     pipelineState
-                                 ));
-                             }
-                         }
+         try {
+             const data = await codepipeline.listPipelines({}).promise();
+             const groups = group(data.pipelines.toSorted((a, b) => {
+                 return sortableName(a.name).localeCompare(sortableName(b.name));
+             }))
+             for (const [project, pipelines] of Object.entries(groups)) {
+                 let header = document.getElementById(`header-${project}`)
+                 if (!header) {
+                     header = document.createElement('h1')
+                     header.id = `header-${project}`
+                     header.innerText = project
+                     header.style.color = 'white'
+                     document.body.appendChild(header)
+                 }
+                 for (const pipeline of pipelines) {
+                     const data = await codepipeline.getPipelineState({name: pipeline.name}).promise();
+                     var pipelineState = data.stageStates.map(function (stage) {
+                         return stage.latestExecution.status;
+                     }).reduce(function (a, b) {
+                         return a === 'Failed' || b === 'Failed' ? 'Failed' : a === 'InProgress' || b === 'InProgress' ? 'InProgress' : 'Succeeded';
                      });
-                 });
+                     let card = document.getElementById(pipeline.name);
+                     if (card) {
+                         card.className = 'card ' + pipelineState;
+                     } else {
+                         document.body.appendChild(createCard(
+                             pipeline,
+                             pipelineState
+                         ));
+                     }
+                 }
              }
-         });
+         } catch (err) {
+             console.log(err, err.stack);
+         }
      }
 
      function createCard(pipeline, pipelineState) {
