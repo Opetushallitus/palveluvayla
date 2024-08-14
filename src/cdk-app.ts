@@ -127,7 +127,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     timeout: cdk.Duration.seconds(5),
     unhealthyThresholdCount: 5,
     healthyThreshold: 5,
-    successCodes: [200],
+    healthyHttpCodes: "200",
     path: "/",
     protocol: elbv2.Protocol.HTTP,
     port: `${this.ports.healthCheck}`,
