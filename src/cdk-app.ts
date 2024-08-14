@@ -105,7 +105,15 @@ interface XroadSecurityServerStackProps extends cdk.StackProps {
 }
 
 class XroadSecurityServerStack extends cdk.Stack {
-  private readonly adminUiPort = 4000;
+  private readonly ports = {
+    adminUi: 4000,
+    informationSystemAccessHttp: 8080,
+    informationSystemAccessHttps: 8443,
+    healthCheck: 5588,
+    ssh: 22,
+    alb: 443,
+  };
+
   private readonly privateDnsNamespace = "security-server";
   private readonly primaryNodeHostName = "primary-node";
 
@@ -349,10 +357,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     sslCertificate: acm.Certificate,
     service: ecs.FargateService
   ) {
-    const albPort = 443;
-    const proxyPort = 8080;
-    const healthCheckPort = 5588;
-
     const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
       vpc,
       internetFacing: false,
@@ -367,30 +371,30 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     alb
       .addListener("OutgoingProxyHttp", {
-        port: albPort,
+        port: this.ports.alb,
         protocol: elbv2.ApplicationProtocol.HTTPS,
         certificates: [sslCertificate],
       })
       .addTargets("OutgoingProxyHttp", {
-        port: proxyPort,
+        port: this.ports.informationSystemAccessHttp,
         targets: [service],
         healthCheck: {
           interval: cdk.Duration.seconds(60),
           timeout: cdk.Duration.seconds(5),
           protocol: elbv2.Protocol.HTTP,
-          port: `${healthCheckPort}`,
+          port: `${this.ports.healthCheck}`,
         },
       });
 
-    alb.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(443));
+    alb.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(this.ports.alb));
     service.connections.allowFrom(
       alb,
-      ec2.Port.tcp(proxyPort),
+      ec2.Port.tcp(this.ports.informationSystemAccessHttp),
       "Allow connections from alb to outgoing proxy port"
     );
     service.connections.allowFrom(
       alb,
-      ec2.Port.tcp(healthCheckPort),
+      ec2.Port.tcp(this.ports.healthCheck),
       "Allow connections from alb to health check port"
     );
 
@@ -490,7 +494,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
       portMappings: [
         {
-          containerPort: this.adminUiPort,
+          containerPort: this.ports.adminUi,
         },
       ],
     });
@@ -516,27 +520,27 @@ class XroadSecurityServerStack extends cdk.Stack {
     databaseCluster.connections.allowDefaultPortFrom(ecsService);
     ecsService.connections.allowFrom(
       secondaryNodes,
-      ec2.Port.tcp(22),
+      ec2.Port.tcp(this.ports.ssh),
       "Allow SSH access from secondary nodes for rsync"
     );
     ecsService.connections.allowFrom(
       bastionHost,
-      ec2.Port.tcp(this.adminUiPort),
+      ec2.Port.tcp(this.ports.adminUi),
       "Allow access to admin web app"
     );
     ecsService.connections.allowFrom(
       certificateValidityLambda,
-      ec2.Port.tcp(this.adminUiPort),
+      ec2.Port.tcp(this.ports.adminUi),
       "Allow access to maintenance API"
     );
     ecsService.connections.allowFrom(
       bastionHost,
-      ec2.Port.tcp(8443),
+      ec2.Port.tcp(this.ports.informationSystemAccessHttps),
       "Allow access to the proxy"
     );
     ecsService.connections.allowFrom(
       bastionHost,
-      ec2.Port.tcp(8080),
+      ec2.Port.tcp(this.ports.informationSystemAccessHttp),
       "Allow access to the proxy"
     );
   }
@@ -593,7 +597,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
       portMappings: [
         {
-          containerPort: 8080,
+          containerPort: this.ports.informationSystemAccessHttp,
         },
       ],
     });
@@ -607,7 +611,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     databaseCluster.connections.allowDefaultPortFrom(service);
     service.connections.allowFrom(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
-      ec2.Port.tcp(8443),
+      ec2.Port.tcp(this.ports.informationSystemAccessHttps),
       "Allow access from the vpc to the outwards ssl proxy"
     );
 
@@ -718,7 +722,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         XROAD_API_HOST: `${this.primaryNodeHostName}.${this.privateDnsNamespace}`,
-        XROAD_API_PORT: `${this.adminUiPort}`,
+        XROAD_API_PORT: `${this.ports.adminUi}`,
         NODE_TLS_REJECT_UNAUTHORIZED: "0",
         NODE_OPTIONS: "--enable-source-maps",
       },
