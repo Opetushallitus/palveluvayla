@@ -599,6 +599,9 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: this.ports.informationSystemAccessHttp,
         },
+        {
+          containerPort: this.ports.healthCheck,
+        },
       ],
     });
 
