@@ -377,7 +377,12 @@ class XroadSecurityServerStack extends cdk.Stack {
       })
       .addTargets("OutgoingProxyHttp", {
         port: this.ports.informationSystemAccessHttp,
-        targets: [service],
+        targets: [
+          service.loadBalancerTarget({
+            containerName: "SecondaryNode",
+            containerPort: this.ports.informationSystemAccessHttp,
+          }),
+        ],
         healthCheck: {
           interval: cdk.Duration.seconds(60),
           timeout: cdk.Duration.seconds(5),
@@ -566,6 +571,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }
     );
     const container = taskDefinition.addContainer("SecondaryNodeContainer", {
+      containerName: "SecondaryNode",
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "SecondaryNode" }),
       environment: {
