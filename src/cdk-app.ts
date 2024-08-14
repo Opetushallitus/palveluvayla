@@ -729,6 +729,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       taskDefinition,
       desiredCount: 2,
       enableExecuteCommand: true,
+      healthCheckGracePeriod: cdk.Duration.minutes(3),
     });
     databaseCluster.connections.allowDefaultPortFrom(service);
     service.connections.allowFrom(
