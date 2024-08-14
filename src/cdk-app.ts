@@ -122,6 +122,16 @@ class XroadSecurityServerStack extends cdk.Stack {
   private readonly privateDnsNamespace = "security-server";
   private readonly primaryNodeHostName = "primary-node";
 
+  private readonly lbHealthCheck = {
+    interval: cdk.Duration.seconds(60),
+    timeout: cdk.Duration.seconds(5),
+    unhealthyThresholdCount: 5,
+    healthyThreshold: 5,
+    successCodes: [200],
+    path: "/",
+    protocol: elbv2.Protocol.HTTP,
+    port: `${this.ports.healthCheck}`,
+  };
   constructor(
     scope: constructs.Construct,
     id: string,
@@ -401,12 +411,7 @@ class XroadSecurityServerStack extends cdk.Stack {
             containerPort: this.ports.messageExchange,
           }),
         ],
-        healthCheck: {
-          interval: cdk.Duration.seconds(60),
-          timeout: cdk.Duration.seconds(5),
-          protocol: elbv2.Protocol.HTTP,
-          port: `${this.ports.healthCheck}`,
-        },
+        healthCheck: this.lbHealthCheck,
       });
     nlb.connections.allowFrom(
       ec2.Peer.anyIpv4(),
@@ -431,12 +436,7 @@ class XroadSecurityServerStack extends cdk.Stack {
             containerPort: this.ports.ocspResponse,
           }),
         ],
-        healthCheck: {
-          interval: cdk.Duration.seconds(60),
-          timeout: cdk.Duration.seconds(5),
-          protocol: elbv2.Protocol.HTTP,
-          port: `${this.ports.healthCheck}`,
-        },
+        healthCheck: this.lbHealthCheck,
       });
 
     nlb.connections.allowFrom(
@@ -490,12 +490,7 @@ class XroadSecurityServerStack extends cdk.Stack {
             containerPort: this.ports.informationSystemAccessHttp,
           }),
         ],
-        healthCheck: {
-          interval: cdk.Duration.seconds(60),
-          timeout: cdk.Duration.seconds(5),
-          protocol: elbv2.Protocol.HTTP,
-          port: `${this.ports.healthCheck}`,
-        },
+        healthCheck: this.lbHealthCheck,
       });
 
     alb.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(this.ports.alb));
