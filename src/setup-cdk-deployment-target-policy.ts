@@ -70,7 +70,7 @@ const PolicyDocument = JSON.stringify({
     },
     {
       Effect: "Allow",
-      Action: ["iam:GetRole", "iam:PassRole"],
+      Action: ["iam:*"],
       Resource: "*",
     },
     {

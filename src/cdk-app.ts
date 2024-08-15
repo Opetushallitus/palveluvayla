@@ -16,6 +16,7 @@ import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as apigatewayv2_authorizers from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import * as custom_resources from "aws-cdk-lib/custom-resources";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -26,8 +27,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as event_targets from "aws-cdk-lib/aws-events-targets";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as cloudwatch_actions from "aws-cdk-lib/aws-cloudwatch-actions";
-
-type EnvName = "dev" | "qa" | "prod";
+import { EnvName, getConfig } from "./config";
 
 const sharedLambdaDefaults = {
   runtime: lambda.Runtime.NODEJS_20_X,
@@ -84,15 +84,7 @@ class AlarmStack extends cdk.Stack {
       bundling: { sourceMap: true },
     });
 
-    // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
-    const parametersAndSecretsExtension =
-      lambda.LayerVersion.fromLayerVersionArn(
-        this,
-        "ParametersAndSecretsLambdaExtension",
-        "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11"
-      );
-
-    alarmsToSlack.addLayers(parametersAndSecretsExtension);
+    addParametersAndSecretsExtension(this, alarmsToSlack)
     secretsmanager.Secret.fromSecretNameV2(
       this,
       "slack-webhook",
@@ -132,6 +124,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     protocol: elbv2.Protocol.HTTP,
     port: `${this.ports.healthCheck}`,
   };
+
   constructor(
     scope: constructs.Construct,
     id: string,
@@ -145,6 +138,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       this,
       "/env/name"
     ) as EnvName;
+    const config = getConfig(env);
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
     const zoneName = `${env}.${domain}`;
 
@@ -197,7 +191,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const certificateValidityLambda =
       this.createCertificateValidityLeftInDaysLambda(vpc, props.alarmTopic);
-    this.createPrimaryNode(
+    const primaryNodeService = this.createPrimaryNode(
       vpc,
       databaseCluster,
       bastionHost,
@@ -207,8 +201,32 @@ class XroadSecurityServerStack extends cdk.Stack {
       xroadTokenPin,
       sshKeyPair,
       secondaryNodes,
-      certificateValidityLambda
+      certificateValidityLambda,
     );
+    const subsystems = new XroadSubsystems(this, "Subsystems", {
+      vpc,
+      primaryNodeService,
+      primaryNodeHostName: this.primaryNodeHostName,
+      privateDnsNamespace: this.privateDnsNamespace,
+      adminUiPort: this.ports.adminUi,
+    });
+    const commonProps = {
+      XroadInstance: config.xroadEnvironment,
+      MemberClass: "GOV",
+      MemberName: "OPH",
+      MemberCode: "2769790-1",
+      Registered: true,
+    };
+    subsystems.addSubsystem("TestClientSubsystem", {
+      ...commonProps,
+      SubsystemName: "test-client",
+      WsdlServices: [],
+    });
+    subsystems.addSubsystem("TestServiceSubsystem", {
+      ...commonProps,
+      SubsystemName: "test-service",
+      WsdlServices: config.testWsdlUrls.map((url) => ({ url })),
+    });
   }
 
   private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
@@ -544,7 +562,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function
-  ) {
+  ): ecs.FargateService {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
@@ -650,6 +668,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       ec2.Port.tcp(this.ports.informationSystemAccessHttp),
       "Allow access to the proxy"
     );
+    return ecsService
   }
 
   private createSecondaryNodes(
@@ -848,16 +867,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         NODE_OPTIONS: "--enable-source-maps",
       },
     });
-
-    // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
-    const parametersAndSecretsExtension =
-      lambda.LayerVersion.fromLayerVersionArn(
-        this,
-        "ParametersAndSecretsLambdaExtension",
-        "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11"
-      );
-
-    l.addLayers(parametersAndSecretsExtension);
+    addParametersAndSecretsExtension(this, l);
     secretsmanager.Secret.fromSecretNameV2(
       this,
       "xroad-api-key",
@@ -944,8 +954,93 @@ class XroadSecurityServerStack extends cdk.Stack {
   }
 }
 
-function lambdaCodeFromAsset(lambdaName: string) {
-  return lambda.Code.fromAsset(path.join(__dirname, "../lambda", lambdaName));
+type XroadSubsystemsProps = {
+  vpc: ec2.Vpc;
+  primaryNodeService: ecs.FargateService;
+  primaryNodeHostName: string;
+  privateDnsNamespace: string;
+  adminUiPort: number;
+};
+
+type SubsystemProps = {
+  SubsystemName: string;
+  XroadInstance: string;
+  MemberClass: string;
+  MemberName: string;
+  MemberCode: string;
+  Registered: boolean;
+  WsdlServices: Array<{ url: string }>;
+};
+
+class XroadSubsystems extends constructs.Construct {
+  private provider: custom_resources.Provider;
+
+  constructor(
+    scope: constructs.Construct,
+    id: string,
+    props: XroadSubsystemsProps,
+  ) {
+    super(scope, id);
+    const handler = new nodejs.NodejsFunction(
+      this,
+      "XroadSubsystemCustomResourceHandler",
+      {
+        entry: path.join(
+          __dirname,
+          "../lambda/xroad-subsystem-custom-resource/index.ts",
+        ),
+        bundling: { sourceMap: true },
+        runtime: lambda.Runtime.NODEJS_20_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.minutes(5),
+        vpc: props.vpc,
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        environment: {
+          XROAD_API_HOST: `${props.primaryNodeHostName}.${props.privateDnsNamespace}`,
+          XROAD_API_PORT: `${props.adminUiPort}`,
+          NODE_TLS_REJECT_UNAUTHORIZED: "0",
+          NODE_OPTIONS: "--enable-source-maps",
+        },
+      },
+    );
+    addParametersAndSecretsExtension(this, handler);
+    secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "xroad-api-key",
+      "xroad-api-key",
+    ).grantRead(handler);
+    props.primaryNodeService.connections.allowFrom(
+      handler,
+      ec2.Port.tcp(props.adminUiPort),
+      "Allow access to maintenance API",
+    );
+    this.provider = new custom_resources.Provider(this, "XroadSubsystem", {
+      onEventHandler: handler,
+    });
+    this.provider.node.addDependency(handler);
+  }
+
+  addSubsystem(id: string, properties: SubsystemProps) {
+    const customResource = new cdk.CustomResource(this, id, {
+      serviceToken: this.provider.serviceToken,
+      properties: properties,
+    });
+    customResource.node.addDependency(this.provider);
+  }
+}
+
+function addParametersAndSecretsExtension(
+  scope: constructs.Construct,
+  func: lambda.Function,
+) {
+  // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
+  const parametersAndSecretsExtension = lambda.LayerVersion.fromLayerVersionArn(
+    scope,
+    "ParametersAndSecretsLambdaExtension",
+    "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11",
+  );
+
+  func.addLayers(parametersAndSecretsExtension);
 }
 
 const app = new CdkApp();
