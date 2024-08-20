@@ -134,10 +134,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const inIpAddresses = this.createInIpAddresses();
 
-    const env = ssm.StringParameter.valueFromLookup(
-      this,
-      "/env/name"
-    ) as EnvName;
+    const env = process.env.ENV as EnvName;
     const config = getConfig(env);
     const domain = ssm.StringParameter.valueFromLookup(this, "/env/domain");
     const zoneName = `${env}.${domain}`;

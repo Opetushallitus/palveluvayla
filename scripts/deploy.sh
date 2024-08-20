@@ -46,7 +46,7 @@ function deploy_env {
     export CDK_DEPLOY_TARGET_REGION=${region}
   fi
   login_to_docker_if_possible
-  npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
+  ENV="${env}" npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
 }
 
 function login_to_docker_if_possible {
