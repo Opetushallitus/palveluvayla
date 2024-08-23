@@ -52,7 +52,7 @@ type ClientStatus =
   | "GLOBAL_ERROR"
   | "REGISTRATION_IN_PROGRESS"
   | "DELETION_IN_PROGRESS";
-type Client = {
+export type Client = {
   id: string;
   instance_id: string;
   member_name: string;
@@ -187,6 +187,44 @@ export async function enableService(serviceId: string) {
   );
   if (status !== 200) {
     throw new Error("Failed to enable service");
+  }
+}
+
+export async function postAccessRights(
+  serviceSubsystemId: string,
+  clientSubsystemId: string,
+  accessRights: {
+    items: Array<{
+      service_code: string;
+    }>;
+  },
+) {
+  const { status } = await callApi(
+    "POST",
+    `/v1/clients/${encodeURIComponent(serviceSubsystemId)}/service-clients/${encodeURIComponent(clientSubsystemId)}/access-rights`,
+    accessRights,
+  );
+  if (status !== 201) {
+    throw new Error("Failed to add access rights");
+  }
+}
+
+export async function deleteAccessRights(
+  clientId: string,
+  serviceId: string,
+  accessRightsId: {
+    items: Array<{
+      service_code: string;
+    }>;
+  },
+) {
+  const { status } = await callApi(
+    "POST",
+    `/v1/clients/${encodeURIComponent(serviceId)}/service-clients/${encodeURIComponent(clientId)}/access-rights/delete`,
+    accessRightsId,
+  );
+  if (status !== 204) {
+    throw new Error("Failed to delete access rights");
   }
 }
 

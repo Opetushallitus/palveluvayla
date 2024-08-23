@@ -214,16 +214,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       MemberCode: "2769790-1",
       Registered: true,
     };
-    subsystems.addSubsystem("TestClientSubsystem", {
+    const testClientSubsystem = subsystems.addSubsystem("TestClientSubsystem", {
       ...commonProps,
       SubsystemName: "test-client",
       WsdlServices: [],
+      AllowedSubsystems: [],
     });
-    subsystems.addSubsystem("TestServiceSubsystem", {
-      ...commonProps,
-      SubsystemName: "test-service",
-      WsdlServices: config.testWsdlUrls.map((url) => ({ url })),
-    });
+    const testServiceSubsystem = subsystems.addSubsystem(
+      "TestServiceSubsystem",
+      {
+        ...commonProps,
+        SubsystemName: "test-service",
+        WsdlServices: config.testWsdlUrls.map((url) => ({ url })),
+        AllowedSubsystems: config.testAllowedSubsystems,
+      },
+    );
+    testServiceSubsystem.node.addDependency(testClientSubsystem);
   }
 
   private createOutgoingProxyLambda(vpc: ec2.Vpc, zoneName: string) {
@@ -967,6 +973,10 @@ type SubsystemProps = {
   MemberCode: string;
   Registered: boolean;
   WsdlServices: Array<{ url: string }>;
+  AllowedSubsystems: Array<{
+    clientSubsystemId: string;
+    serviceIds: Array<string>;
+  }>;
 };
 
 class XroadSubsystems extends constructs.Construct {
@@ -1017,12 +1027,13 @@ class XroadSubsystems extends constructs.Construct {
     this.provider.node.addDependency(handler);
   }
 
-  addSubsystem(id: string, properties: SubsystemProps) {
+  addSubsystem(id: string, properties: SubsystemProps): cdk.CustomResource {
     const customResource = new cdk.CustomResource(this, id, {
       serviceToken: this.provider.serviceToken,
       properties: properties,
     });
     customResource.node.addDependency(this.provider);
+    return customResource;
   }
 }
 

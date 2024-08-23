@@ -11,6 +11,10 @@ type ResourceProperties =
     SubsystemName: string;
     Registered: "true" | "false";
     WsdlServices: Array<{ url: string }>;
+    AllowedSubsystems: Array<{
+      clientSubsystemId: string;
+      serviceIds: Array<string>;
+    }>;
   };
 
 exports.handler = async (
@@ -23,11 +27,11 @@ exports.handler = async (
     if (event.RequestType === "Delete") {
       const result = await handleDelete(props);
       return await report(event, context, "SUCCESS", result);
-    } else if (event.RequestType === "Update") {
-      const result = await handleUpdate(props);
-      return await report(event, context, "SUCCESS", result);
-    } else if (event.RequestType === "Create") {
-      const result = await handleCreate(props);
+    } else if (
+      event.RequestType === "Create" ||
+      event.RequestType === "Update"
+    ) {
+      const result = await handleCreateOrUpdate(props);
       return await report(event, context, "SUCCESS", result);
     }
   } catch (err) {
@@ -36,57 +40,20 @@ exports.handler = async (
   }
 };
 
-async function handleCreate({
-  XroadInstance,
-  MemberClass,
-  MemberCode,
-  MemberName,
-  SubsystemName,
-  Registered,
-  WsdlServices,
-}: ResourceProperties) {
-  const clientId = `${XroadInstance}:${MemberClass}:${MemberCode}:${SubsystemName}`;
-  await xroad.createClient({
-    ignore_warnings: false,
-    client: {
-      member_class: MemberClass,
-      member_code: MemberCode,
-      member_name: MemberName,
-      subsystem_code: SubsystemName,
-    },
-  });
-  if (Registered === "true") {
-    await xroad.registerClient(clientId);
-  }
-
-  for (const s of WsdlServices) {
-    await xroad.addWsdlService(clientId, { url: s.url, type: "WSDL" });
-  }
-  return await xroad.requireClient(clientId);
-}
-
-async function handleUpdate({
-  XroadInstance,
-  MemberClass,
-  MemberCode,
-  SubsystemName,
-  Registered,
-  WsdlServices,
-}: ResourceProperties) {
-  const clientId = `${XroadInstance}:${MemberClass}:${MemberCode}:${SubsystemName}`;
-  const client = await xroad.requireClient(clientId);
-
+async function handleCreateOrUpdate(props: ResourceProperties) {
+  const { Registered, WsdlServices, AllowedSubsystems } = props;
+  const client = await getOrCreateClient(props);
   if (client.status === "REGISTERED" && Registered !== "true") {
-    await xroad.unregisterClient(clientId);
+    await xroad.unregisterClient(client.id);
   } else if (client.status !== "REGISTERED" && Registered === "true") {
-    await xroad.registerClient(clientId);
+    await xroad.registerClient(client.id);
   }
 
-  const services = await xroad.getServices(clientId);
+  const services = await xroad.getServices(client.id);
   for (const s of WsdlServices) {
     const found = services.find((_) => _.type === "WSDL" && _.url === s.url);
     if (!found) {
-      await xroad.addWsdlService(clientId, { url: s.url, type: "WSDL" });
+      await xroad.addWsdlService(client.id, { url: s.url, type: "WSDL" });
     }
   }
 
@@ -98,7 +65,38 @@ async function handleUpdate({
     await xroad.deleteService(s.id);
   }
 
-  return await xroad.requireClient(clientId);
+  for (const { clientSubsystemId, serviceIds } of AllowedSubsystems) {
+    await xroad.postAccessRights(client.id, clientSubsystemId, {
+      items: serviceIds.map((_) => ({ service_code: _ })),
+    });
+  }
+
+  return await xroad.requireClient(client.id);
+}
+
+async function getOrCreateClient({
+  XroadInstance,
+  MemberClass,
+  MemberCode,
+  MemberName,
+  SubsystemName,
+}: ResourceProperties): Promise<xroad.Client> {
+  const clientId = `${XroadInstance}:${MemberClass}:${MemberCode}:${SubsystemName}`;
+  console.log("Getting or creating client", clientId);
+  let client = await xroad.getClient(clientId);
+  if (client) {
+    return client;
+  } else {
+    return await xroad.createClient({
+      ignore_warnings: false,
+      client: {
+        member_class: MemberClass,
+        member_code: MemberCode,
+        member_name: MemberName,
+        subsystem_code: SubsystemName,
+      },
+    });
+  }
 }
 
 async function handleDelete(props: ResourceProperties) {
