@@ -344,12 +344,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       ),
     });
 
+    new apigatewayv2.HttpRoute(this, "TestClientRoute", {
+      httpApi: httpApi,
+      authorizer: authorizer,
+      integration: proxyIntegration,
+      routeKey: apigatewayv2.HttpRouteKey.with(
+        "/test-client",
+        apigatewayv2.HttpMethod.ANY
+      ),
+    });
+
     const httpRoute = new apigatewayv2.HttpRoute(this, "HttpRoute", {
       httpApi: httpApi,
       authorizer: authorizer,
       integration: proxyLambdaIntegration,
       routeKey: apigatewayv2.HttpRouteKey.with(
-        "/{proxy+}",
+        "/r1/{proxy+}",
         apigatewayv2.HttpMethod.ANY
       ),
     });
