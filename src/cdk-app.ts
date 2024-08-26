@@ -63,7 +63,7 @@ class AlarmStack extends cdk.Stack {
     this.alarmTopic = this.createAlarmTopic();
 
     this.alarmTopic.addSubscription(
-      new subscriptions.LambdaSubscription(alarmsToSlackLambda)
+      new subscriptions.LambdaSubscription(alarmsToSlackLambda),
     );
   }
 
@@ -79,16 +79,16 @@ class AlarmStack extends cdk.Stack {
       functionName: "alarms-to-slack",
       entry: path.join(
         __dirname,
-        "../lambda/alarms-to-slack/alarms-to-slack.ts"
+        "../lambda/alarms-to-slack/alarms-to-slack.ts",
       ),
       bundling: { sourceMap: true },
     });
 
-    addParametersAndSecretsExtension(this, alarmsToSlack)
+    addParametersAndSecretsExtension(this, alarmsToSlack);
     secretsmanager.Secret.fromSecretNameV2(
       this,
       "slack-webhook",
-      "slack-webhook"
+      "slack-webhook",
     ).grantRead(alarmsToSlack);
 
     return alarmsToSlack;
@@ -128,7 +128,7 @@ class XroadSecurityServerStack extends cdk.Stack {
   constructor(
     scope: constructs.Construct,
     id: string,
-    props: XroadSecurityServerStackProps
+    props: XroadSecurityServerStackProps,
   ) {
     super(scope, id, props);
 
@@ -146,7 +146,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       recordName: this.hostName(env),
       zone: hostedZone,
       target: route53.RecordTarget.fromIpAddresses(
-        ...inIpAddresses.map((i) => i.ref)
+        ...inIpAddresses.map((i) => i.ref),
       ),
     });
     const sslCertificate = new acm.Certificate(this, "SslCertificate", {
@@ -167,13 +167,13 @@ class XroadSecurityServerStack extends cdk.Stack {
       ecsCluster,
       xroadAdminCredentials,
       xroadTokenPin,
-      sshKeyPair
+      sshKeyPair,
     );
     const alb = this.createOutgoingProxyAlb(
       vpc,
       hostedZone,
       sslCertificate,
-      secondaryNodes
+      secondaryNodes,
     );
     const nlb = this.createIncomingProxyNlb(vpc, inIpAddresses, secondaryNodes);
 
@@ -184,7 +184,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       proxyLambda,
       zoneName,
       hostedZone,
-      sslCertificate
+      sslCertificate,
     );
     const certificateValidityLambda =
       this.createCertificateValidityLeftInDaysLambda(vpc, props.alarmTopic);
@@ -248,7 +248,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createInIpAddresses() {
     return ["InIpAddress", "InIpAddress2"].map((ip) =>
-      this.createIpAddress(ip)
+      this.createIpAddress(ip),
     );
   }
 
@@ -282,12 +282,12 @@ class XroadSecurityServerStack extends cdk.Stack {
     proxyLambda: lambda.Function,
     zoneName: string,
     hostedZone: route53.HostedZone,
-    certificate: acm.Certificate
+    certificate: acm.Certificate,
   ) {
     const vpcLinkSecurityGroup = new ec2.SecurityGroup(
       this,
       "OutgoingProxyVpcLinkSecurityGroup",
-      { vpc, allowAllOutbound: true }
+      { vpc, allowAllOutbound: true },
     );
 
     const proxyVpcLink = new apigatewayv2.VpcLink(
@@ -297,7 +297,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         vpc: vpc,
         subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [vpcLinkSecurityGroup],
-      }
+      },
     );
 
     const proxyIntegration = new apigatewayv2_integrations.HttpAlbIntegration(
@@ -307,13 +307,13 @@ class XroadSecurityServerStack extends cdk.Stack {
         method: apigatewayv2.HttpMethod.ANY,
         vpcLink: proxyVpcLink,
         secureServerName: `proxy.${zoneName}`,
-      }
+      },
     );
 
     const proxyLambdaIntegration =
       new apigatewayv2_integrations.HttpLambdaIntegration(
         "OugoingProxyTransformer",
-        proxyLambda
+        proxyLambda,
       );
 
     const authorizer = new apigatewayv2_authorizers.HttpIamAuthorizer();
@@ -324,7 +324,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         domainName: dnsName,
         certificate,
-      }
+      },
     );
 
     const httpApi = new apigatewayv2.HttpApi(this, "PalveluvaylaApi", {
@@ -339,8 +339,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       target: route53.RecordTarget.fromAlias(
         new targets.ApiGatewayv2DomainProperties(
           domainName.regionalDomainName,
-          domainName.regionalHostedZoneId
-        )
+          domainName.regionalHostedZoneId,
+        ),
       ),
     });
 
@@ -350,7 +350,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       integration: proxyIntegration,
       routeKey: apigatewayv2.HttpRouteKey.with(
         "/test-client",
-        apigatewayv2.HttpMethod.ANY
+        apigatewayv2.HttpMethod.ANY,
       ),
     });
 
@@ -360,12 +360,12 @@ class XroadSecurityServerStack extends cdk.Stack {
       integration: proxyLambdaIntegration,
       routeKey: apigatewayv2.HttpRouteKey.with(
         "/r1/{proxy+}",
-        apigatewayv2.HttpMethod.ANY
+        apigatewayv2.HttpMethod.ANY,
       ),
     });
     const onrAccountId = ssm.StringParameter.valueFromLookup(
       this,
-      "/env/onr-account-id"
+      "/env/onr-account-id",
     );
     const invokeRole = new iam.Role(this, "ApigwInvokeRole", {
       roleName: "ApigwInvokeRole",
@@ -402,14 +402,14 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createIncomingProxyNlb(
     vpc: ec2.Vpc,
     ipAddresses: Array<ec2.CfnEIP>,
-    secondaryNodes: ecs.FargateService
+    secondaryNodes: ecs.FargateService,
   ) {
     const securityGroup = new ec2.SecurityGroup(
       this,
       "IncomingProxySecurityGroup",
       {
         vpc,
-      }
+      },
     );
     const nlb = new elbv2.NetworkLoadBalancer(this, "IncomingProxy", {
       vpc,
@@ -446,12 +446,12 @@ class XroadSecurityServerStack extends cdk.Stack {
       });
     nlb.connections.allowFrom(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(this.ports.messageExchange)
+      ec2.Port.tcp(this.ports.messageExchange),
     );
     secondaryNodes.connections.allowFrom(
       nlb,
       ec2.Port.tcp(this.ports.messageExchange),
-      "Allow connections from nlb to message exchange port"
+      "Allow connections from nlb to message exchange port",
     );
 
     nlb
@@ -472,18 +472,18 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     nlb.connections.allowFrom(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(this.ports.ocspResponse)
+      ec2.Port.tcp(this.ports.ocspResponse),
     );
     secondaryNodes.connections.allowFrom(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(this.ports.ocspResponse),
-      "Allow connections from nlb to ocsp response port"
+      "Allow connections from nlb to ocsp response port",
     );
 
     secondaryNodes.connections.allowFrom(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(this.ports.healthCheck),
-      "Allow connections from nlb to health check port"
+      "Allow connections from nlb to health check port",
     );
 
     return nlb;
@@ -493,7 +493,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     vpc: ec2.Vpc,
     hostedZone: route53.HostedZone,
     sslCertificate: acm.Certificate,
-    service: ecs.FargateService
+    service: ecs.FargateService,
   ) {
     const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
       vpc,
@@ -502,7 +502,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     new route53.ARecord(this, "OutgoingProxyInternal", {
       recordName: `internal-proxy.${hostedZone.zoneName}`,
       target: route53.RecordTarget.fromAlias(
-        new targets.LoadBalancerTarget(alb)
+        new targets.LoadBalancerTarget(alb),
       ),
       zone: hostedZone,
     });
@@ -528,12 +528,12 @@ class XroadSecurityServerStack extends cdk.Stack {
     service.connections.allowFrom(
       alb,
       ec2.Port.tcp(this.ports.informationSystemAccessHttp),
-      "Allow connections from alb to outgoing proxy port"
+      "Allow connections from alb to outgoing proxy port",
     );
     service.connections.allowFrom(
       alb,
       ec2.Port.tcp(this.ports.healthCheck),
-      "Allow connections from alb to health check port"
+      "Allow connections from alb to health check port",
     );
 
     return alb;
@@ -543,7 +543,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     return secretsmanager.Secret.fromSecretNameV2(
       this,
       "XroadSshKeyPair",
-      "xroad_ssh_key_pair"
+      "xroad_ssh_key_pair",
     );
   }
 
@@ -561,7 +561,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         name: this.privateDnsNamespace,
         vpc,
-      }
+      },
     );
   }
   private createPrimaryNode(
@@ -574,7 +574,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
-    certificateValidityLambda: lambda.Function
+    certificateValidityLambda: lambda.Function,
   ): ecs.FargateService {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -586,7 +586,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         cpu: 1024,
         memoryLimitMiB: 4096,
-      }
+      },
     );
     const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
       vpc,
@@ -607,27 +607,27 @@ class XroadSecurityServerStack extends cdk.Stack {
       environment: {
         XROAD_LOG_LEVEL: "ALL",
         XROAD_DB_HOST: cdk.Token.asString(
-          databaseCluster.clusterEndpoint.hostname
+          databaseCluster.clusterEndpoint.hostname,
         ),
         XROAD_DB_PORT: cdk.Token.asString(databaseCluster.clusterEndpoint.port),
       },
       secrets: {
         XROAD_DB_PWD: ecs.Secret.fromSecretsManager(
           databaseCluster.secret!,
-          "password"
+          "password",
         ),
         XROAD_ADMIN_USER: ecs.Secret.fromSecretsManager(
           xroadAdminCredentials,
-          "username"
+          "username",
         ),
         XROAD_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
           xroadAdminCredentials,
-          "password"
+          "password",
         ),
         XROAD_TOKEN_PIN: ecs.Secret.fromSecretsManager(xroadTokenPin),
         SSH_PUBLIC_KEY_BASE64: ecs.Secret.fromSecretsManager(
           sshKeyPair,
-          "public_key_base64"
+          "public_key_base64",
         ),
       },
       portMappings: [
@@ -659,29 +659,29 @@ class XroadSecurityServerStack extends cdk.Stack {
     ecsService.connections.allowFrom(
       secondaryNodes,
       ec2.Port.tcp(this.ports.ssh),
-      "Allow SSH access from secondary nodes for rsync"
+      "Allow SSH access from secondary nodes for rsync",
     );
     ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(this.ports.adminUi),
-      "Allow access to admin web app"
+      "Allow access to admin web app",
     );
     ecsService.connections.allowFrom(
       certificateValidityLambda,
       ec2.Port.tcp(this.ports.adminUi),
-      "Allow access to maintenance API"
+      "Allow access to maintenance API",
     );
     ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(this.ports.informationSystemAccessHttps),
-      "Allow access to the proxy"
+      "Allow access to the proxy",
     );
     ecsService.connections.allowFrom(
       bastionHost,
       ec2.Port.tcp(this.ports.informationSystemAccessHttp),
-      "Allow access to the proxy"
+      "Allow access to the proxy",
     );
-    return ecsService
+    return ecsService;
   }
 
   private createSecondaryNodes(
@@ -690,7 +690,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     ecsCluster: ecs.Cluster,
     xroadAdminCredentials: secretsmanager.ISecret,
     xroadTokenPin: secretsmanager.ISecret,
-    sshKeyPair: secretsmanager.ISecret
+    sshKeyPair: secretsmanager.ISecret,
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -702,7 +702,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         cpu: 1024,
         memoryLimitMiB: 4096,
-      }
+      },
     );
     const container = taskDefinition.addContainer("SecondaryNodeContainer", {
       containerName: "SecondaryNode",
@@ -711,7 +711,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       environment: {
         XROAD_LOG_LEVEL: "ALL",
         XROAD_DB_HOST: cdk.Token.asString(
-          databaseCluster.clusterEndpoint.hostname
+          databaseCluster.clusterEndpoint.hostname,
         ),
         XROAD_DB_PORT: cdk.Token.asString(databaseCluster.clusterEndpoint.port),
         XROAD_PRIMARY_DNS: "primary-node.security-server",
@@ -719,20 +719,20 @@ class XroadSecurityServerStack extends cdk.Stack {
       secrets: {
         XROAD_DB_PWD: ecs.Secret.fromSecretsManager(
           databaseCluster.secret!,
-          "password"
+          "password",
         ),
         XROAD_ADMIN_USER: ecs.Secret.fromSecretsManager(
           xroadAdminCredentials,
-          "username"
+          "username",
         ),
         XROAD_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
           xroadAdminCredentials,
-          "password"
+          "password",
         ),
         XROAD_TOKEN_PIN: ecs.Secret.fromSecretsManager(xroadTokenPin),
         SSH_PRIVATE_KEY_BASE64: ecs.Secret.fromSecretsManager(
           sshKeyPair,
-          "private_key_base64"
+          "private_key_base64",
         ),
       },
       portMappings: [
@@ -762,7 +762,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     service.connections.allowFrom(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
       ec2.Port.tcp(this.ports.informationSystemAccessHttps),
-      "Allow access from the vpc to the outwards ssl proxy"
+      "Allow access from the vpc to the outwards ssl proxy",
     );
 
     return service;
@@ -773,7 +773,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const natProvider = ec2.NatProvider.gateway({
       eipAllocationIds: outIpAddresses.map((ip) =>
-        ip.getAtt("AllocationId").toString()
+        ip.getAtt("AllocationId").toString(),
       ),
     });
 
@@ -808,13 +808,13 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createOutIpAddresses() {
     return ["OutIpAddress", "OutIpAddress2"].map((ip) =>
-      this.createIpAddress(ip)
+      this.createIpAddress(ip),
     );
   }
 
   private createDatabaseCluster(
     vpc: ec2.Vpc,
-    bastionHost: ec2.BastionHostLinux
+    bastionHost: ec2.BastionHostLinux,
   ) {
     const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
     const cluster = new rds.DatabaseCluster(
@@ -831,7 +831,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         instanceProps: {
           instanceType: ec2.InstanceType.of(
             ec2.InstanceClass.T4G,
-            ec2.InstanceSize.MEDIUM
+            ec2.InstanceSize.MEDIUM,
           ),
           vpc,
           vpcSubnets: {
@@ -839,7 +839,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           },
         },
         storageEncrypted: true,
-      }
+      },
     );
     cluster.connections.allowDefaultPortFrom(bastionHost);
 
@@ -859,13 +859,13 @@ class XroadSecurityServerStack extends cdk.Stack {
 
   private createCertificateValidityLeftInDaysLambda(
     vpc: ec2.Vpc,
-    alarmTopic: sns.ITopic
+    alarmTopic: sns.ITopic,
   ) {
     const l = new nodejs.NodejsFunction(this, "certificateValidityLeftInDays", {
       functionName: "certificate-validity-left-in-days",
       entry: path.join(
         __dirname,
-        "../lambda/certificate-validity-left-in-days/index.ts"
+        "../lambda/certificate-validity-left-in-days/index.ts",
       ),
       bundling: { sourceMap: true },
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -884,7 +884,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     secretsmanager.Secret.fromSecretNameV2(
       this,
       "xroad-api-key",
-      "xroad-api-key"
+      "xroad-api-key",
     ).grantRead(l);
 
     const rule = new events.Rule(
@@ -892,7 +892,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       "LogXroadCertificateValidityEveryFiveMinutes",
       {
         schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
-      }
+      },
     );
     rule.addTarget(new event_targets.LambdaFunction(l));
 
@@ -907,7 +907,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         filterPattern: logs.FilterPattern.exists("$.validDaysLeft"),
         metricValue: "$.validDaysLeft",
         dimensions: { label: "$.label", token: "$.token" },
-      }
+      },
     );
 
     const authenticationCertificateAlarm = new cloudwatch.Alarm(
@@ -930,7 +930,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         evaluationPeriods: 1,
         treatMissingData: cloudwatch.TreatMissingData.BREACHING,
         actionsEnabled: true,
-      }
+      },
     );
 
     const signingCertificateAlarm = new cloudwatch.Alarm(
@@ -953,14 +953,14 @@ class XroadSecurityServerStack extends cdk.Stack {
         evaluationPeriods: 1,
         treatMissingData: cloudwatch.TreatMissingData.BREACHING,
         actionsEnabled: true,
-      }
+      },
     );
 
     [authenticationCertificateAlarm, signingCertificateAlarm].forEach(
       (alarm) => {
         alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
         alarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
-      }
+      },
     );
 
     return l;
