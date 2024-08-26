@@ -225,7 +225,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         ...commonProps,
         SubsystemName: "test-service",
-        WsdlServices: config.testWsdlUrls.map((url) => ({ url })),
+        WsdlServices: config.testWsdlServices,
         AllowedSubsystems: config.testAllowedSubsystems,
       },
     );
@@ -975,6 +975,14 @@ type XroadSubsystemsProps = {
   adminUiPort: number;
 };
 
+type WsdlService = {
+  wsdlUrl: string;
+  serviceEndpoints: Array<{
+    serviceCode: string;
+    endpoint: string;
+  }>;
+};
+
 type SubsystemProps = {
   SubsystemName: string;
   XroadInstance: string;
@@ -982,7 +990,7 @@ type SubsystemProps = {
   MemberName: string;
   MemberCode: string;
   Registered: boolean;
-  WsdlServices: Array<{ url: string }>;
+  WsdlServices: Array<WsdlService>;
   AllowedSubsystems: Array<{
     clientSubsystemId: string;
     serviceIds: Array<string>;

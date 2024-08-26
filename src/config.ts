@@ -1,8 +1,16 @@
 export type EnvName = "dev" | "qa" | "prod";
 
+export type WsdlService = {
+  wsdlUrl: string;
+  serviceEndpoints: Array<{
+    serviceCode: string;
+    endpoint: string;
+  }>;
+};
+
 export type Config = {
   xroadEnvironment: "FI" | "FI-TEST" | "FI-DEV";
-  testWsdlUrls: string[];
+  testWsdlServices: Array<WsdlService>;
   testAllowedSubsystems: Array<{
     clientSubsystemId: string;
     serviceIds: string[];
@@ -22,21 +30,40 @@ export function getConfig(env: EnvName): Config {
 
 const prod: Config = {
   xroadEnvironment: "FI",
-  testWsdlUrls: [],
+  testWsdlServices: [],
   testAllowedSubsystems: [],
 };
 
 const qa: Config = {
   xroadEnvironment: "FI-TEST",
-  testWsdlUrls: [],
+  testWsdlServices: [],
   testAllowedSubsystems: [],
 };
 
 const dev: Config = {
   xroadEnvironment: "FI-DEV",
-  testWsdlUrls: [
-    "https://dev.koski.opintopolku.fi/koski/wsdl/hsl.wsdl",
-    "https://dev.koski.opintopolku.fi/koski/wsdl/suomiFiRekisteritiedot.wsdl",
+  testWsdlServices: [
+    {
+      wsdlUrl: "https://dev.koski.opintopolku.fi/koski/wsdl/hsl.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "opintoOikeudetService.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu-dev.testiopintopolku.fi/koski/api/palveluvayla/hsl",
+        },
+      ],
+    },
+    {
+      wsdlUrl:
+        "https://dev.koski.opintopolku.fi/koski/wsdl/suomiFiRekisteritiedot.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "suomiFiRekisteritiedot.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu-dev.testiopintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
+        },
+      ],
+    },
   ],
   testAllowedSubsystems: [
     {

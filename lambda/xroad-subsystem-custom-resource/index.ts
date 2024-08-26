@@ -10,7 +10,13 @@ type ResourceProperties =
     MemberCode: string;
     SubsystemName: string;
     Registered: "true" | "false";
-    WsdlServices: Array<{ url: string }>;
+    WsdlServices: Array<{
+      wsdlUrl: string;
+      serviceEndpoints: Array<{
+        serviceCode: string;
+        endpoint: string;
+      }>;
+    }>;
     AllowedSubsystems: Array<{
       clientSubsystemId: string;
       serviceIds: Array<string>;
@@ -51,13 +57,27 @@ async function handleCreateOrUpdate(props: ResourceProperties) {
 
   const services = await xroad.getServices(client.id);
   for (const s of WsdlServices) {
-    const found = services.find((_) => _.type === "WSDL" && _.url === s.url);
+    const found = services.find(
+      (_) => _.type === "WSDL" && _.url === s.wsdlUrl,
+    );
     if (!found) {
-      await xroad.addWsdlService(client.id, { url: s.url, type: "WSDL" });
+      await xroad.addWsdlService(client.id, { url: s.wsdlUrl, type: "WSDL" });
+    }
+
+    for (const { serviceCode, endpoint } of s.serviceEndpoints) {
+      await xroad.updateService(client.id, serviceCode, {
+        url: endpoint,
+        url_all: false,
+        timeout: 60,
+        timeout_all: false,
+        ssl_auth: false,
+        ssl_auth_all: false,
+        ignore_warnings: false,
+      });
     }
   }
 
-  const desiredServiceUrls = WsdlServices.map((_) => _.url);
+  const desiredServiceUrls = WsdlServices.map((_) => _.wsdlUrl);
   const servicesToDelete = services.filter(
     (_) => !desiredServiceUrls.includes(_.url),
   );
@@ -66,9 +86,21 @@ async function handleCreateOrUpdate(props: ResourceProperties) {
   }
 
   for (const { clientSubsystemId, serviceIds } of AllowedSubsystems) {
-    await xroad.postAccessRights(client.id, clientSubsystemId, {
-      items: serviceIds.map((_) => ({ service_code: _ })),
-    });
+    const existingServiceIds = (
+      await xroad.getAccessRights(client.id, clientSubsystemId)
+    ).map((_) => _.service_code);
+    const toAdd = serviceIds.filter((_) => !existingServiceIds.includes(_));
+    const toRemove = existingServiceIds.filter((_) => !serviceIds.includes(_));
+    if (toAdd.length > 0) {
+      await xroad.postAccessRights(client.id, clientSubsystemId, {
+        items: toAdd.map((_) => ({ service_code: _ })),
+      });
+    }
+    if (toRemove.length > 0) {
+      await xroad.deleteAccessRights(client.id, clientSubsystemId, {
+        items: toRemove.map((_) => ({ service_code: _ })),
+      });
+    }
   }
 
   return await xroad.requireClient(client.id);

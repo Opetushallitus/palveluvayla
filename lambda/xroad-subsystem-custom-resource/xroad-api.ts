@@ -169,6 +169,33 @@ export async function addWsdlService(
   return body;
 }
 
+export type Service = {
+  timeout: number;
+  timeout_all: boolean;
+  ssl_auth: boolean;
+  ssl_auth_all: boolean;
+  url: string;
+  url_all: boolean;
+  ignore_warnings: boolean;
+};
+
+export async function updateService(
+  serviceSubsystemId: string,
+  fullServiceCode: string,
+  service: Service,
+): Promise<ServiceResponse> {
+  const { status, body } = await callApi(
+    "PATCH",
+    `/v1/services/${encodeURIComponent(serviceSubsystemId + ":" + fullServiceCode)}`,
+    service,
+  );
+  if (status !== 200) {
+    throw new Error("Failed to service");
+  }
+  console.log("Service updated", body);
+  return body;
+}
+
 export async function deleteService(serviceId: string) {
   const { status } = await callApi(
     "DELETE",
@@ -190,6 +217,24 @@ export async function enableService(serviceId: string) {
   }
 }
 
+export type AccessRight = {
+  service_code: string;
+  service_title?: string;
+  rights_given_at?: string;
+};
+export async function getAccessRights(
+  serviceSubsystemId: string,
+  clientSubsystemId: string,
+): Promise<AccessRight[]> {
+  const { status, body } = await callApi(
+    "GET",
+    `/v1/clients/${encodeURIComponent(serviceSubsystemId)}/service-clients/${encodeURIComponent(clientSubsystemId)}/access-rights`,
+  );
+  if (status !== 200) {
+    throw new Error("Failed to get access rights");
+  }
+  return body;
+}
 export async function postAccessRights(
   serviceSubsystemId: string,
   clientSubsystemId: string,
@@ -212,7 +257,7 @@ export async function postAccessRights(
 export async function deleteAccessRights(
   clientId: string,
   serviceId: string,
-  accessRightsId: {
+  accessRights: {
     items: Array<{
       service_code: string;
     }>;
@@ -221,7 +266,7 @@ export async function deleteAccessRights(
   const { status } = await callApi(
     "POST",
     `/v1/clients/${encodeURIComponent(serviceId)}/service-clients/${encodeURIComponent(clientId)}/access-rights/delete`,
-    accessRightsId,
+    accessRights,
   );
   if (status !== 204) {
     throw new Error("Failed to delete access rights");
@@ -237,7 +282,7 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function callApi<T = any>(
-  method: "GET" | "POST" | "PUT" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
   path: string,
   requestBody?: any,
 ): Promise<{ status: number; body?: T }> {
