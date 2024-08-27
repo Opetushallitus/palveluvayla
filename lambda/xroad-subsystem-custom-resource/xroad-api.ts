@@ -230,10 +230,15 @@ export async function getAccessRights(
     "GET",
     `/v1/clients/${encodeURIComponent(serviceSubsystemId)}/service-clients/${encodeURIComponent(clientSubsystemId)}/access-rights`,
   );
-  if (status !== 200) {
-    throw new Error("Failed to get access rights");
+
+  switch (status) {
+    case 200:
+      return body;
+    case 404:
+      return [];
+    default:
+      throw new Error("Failed to get access rights");
   }
-  return body;
 }
 export async function postAccessRights(
   serviceSubsystemId: string,
