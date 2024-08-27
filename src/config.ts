@@ -59,7 +59,12 @@ const qa: Config = {
       ],
     },
   ],
-  testAllowedSubsystems: [],
+  testAllowedSubsystems: [
+    {
+      clientSubsystemId: `FI-TEST:GOV:2769790-1:test-client`,
+      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
+    },
+  ],
 };
 
 const dev: Config = {
