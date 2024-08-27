@@ -36,7 +36,29 @@ const prod: Config = {
 
 const qa: Config = {
   xroadEnvironment: "FI-TEST",
-  testWsdlServices: [],
+  testWsdlServices: [
+    {
+      wsdlUrl: "https://testiopintopolku.fi/koski/wsdl/hsl.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "opintoOikeudetService.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu-qa.testiopintopolku.fi/koski/api/palveluvayla/hsl",
+        },
+      ],
+    },
+    {
+      wsdlUrl:
+        "https://testiopintopolku.fi/koski/wsdl/suomiFiRekisteritiedot.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "suomiFiRekisteritiedot.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu-qa.testiopintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
+        },
+      ],
+    },
+  ],
   testAllowedSubsystems: [],
 };
 
