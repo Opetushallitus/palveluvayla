@@ -55,6 +55,11 @@ const PolicyDocument = JSON.stringify({
     },
     {
       Effect: "Allow",
+      Action: ["elacsticfilesystem:*"],
+      Resource: "*",
+    },
+    {
+      Effect: "Allow",
       Action: ["apigateway:*"],
       Resource: "*",
     },
