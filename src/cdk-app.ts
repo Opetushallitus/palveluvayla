@@ -591,6 +591,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
       vpc,
       encrypted: true,
+      enableAutomaticBackups: true,
     });
     const volume = {
       name: "XroadConfiguration",
