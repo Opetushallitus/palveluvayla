@@ -1,9 +1,10 @@
 FROM niis/xroad-security-server-sidecar:7.2.2-primary-fi
 
-COPY ./local.ini /etc/xroad/conf.d/local.ini
+COPY ./local.ini /root/local.ini
 
 CMD mkdir /etc/.ssh && \
     chmod 755 /etc/.ssh && \
     echo -n ${SSH_PUBLIC_KEY_BASE64} | base64 --decode > /etc/.ssh/id_rsa.pub && \
     chmod 644 /etc/.ssh/id_rsa.pub && \
+    cp /root/local.ini /etc/xroad/conf.d/local.ini && \
     /root/entrypoint.sh
