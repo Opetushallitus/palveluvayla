@@ -55,7 +55,7 @@ const PolicyDocument = JSON.stringify({
     },
     {
       Effect: "Allow",
-      Action: ["elacsticfilesystem:*"],
+      Action: ["elasticfilesystem:*"],
       Resource: "*",
     },
     {
