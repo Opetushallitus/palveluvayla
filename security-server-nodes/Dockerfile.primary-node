@@ -1,5 +1,7 @@
 FROM niis/xroad-security-server-sidecar:7.2.2-primary-fi
 
+COPY ./local.ini /etc/xroad/conf.d/local.ini
+
 CMD mkdir /etc/.ssh && \
     chmod 755 /etc/.ssh && \
     echo -n ${SSH_PUBLIC_KEY_BASE64} | base64 --decode > /etc/.ssh/id_rsa.pub && \

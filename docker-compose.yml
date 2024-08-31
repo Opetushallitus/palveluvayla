@@ -2,8 +2,8 @@ version: "3.3"
 services:
   xroad-primary-security-server:
     build:
-      context: .
-      dockerfile: security-server-nodes/Dockerfile.primary-node
+      context: security-server-nodes
+      dockerfile: Dockerfile.primary-node
     container_name: xroad-primary-security-server
     environment:
       - XROAD_LOG_LEVEL=DEBUG
@@ -16,8 +16,8 @@ services:
 
   xroad-secondary-security-server:
     build:
-      context: .
-      dockerfile: security-server-nodes/Dockerfile.secondary-node
+      context: security-server-nodes
+      dockerfile: Dockerfile.secondary-node
     container_name: xroad-secondary-security-server
     ports:
       - "14000:4000"
