@@ -30,8 +30,34 @@ export function getConfig(env: EnvName): Config {
 
 const prod: Config = {
   xroadEnvironment: "FI",
-  testWsdlServices: [],
-  testAllowedSubsystems: [],
+  testWsdlServices: [
+    {
+      wsdlUrl: "https://opintopolku.fi/koski/wsdl/hsl.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "opintoOikeudetService.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu.opintopolku.fi/koski/api/palveluvayla/hsl",
+        },
+      ],
+    },
+    {
+      wsdlUrl: "https://opintopolku.fi/koski/wsdl/suomiFiRekisteritiedot.wsdl",
+      serviceEndpoints: [
+        {
+          serviceCode: "suomiFiRekisteritiedot.v1",
+          endpoint:
+            "https://oph-koski-luovutuspalvelu,opintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
+        },
+      ],
+    },
+  ],
+  testAllowedSubsystems: [
+    {
+      clientSubsystemId: `FI:GOV:2769790-1:test-client`,
+      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
+    },
+  ],
 };
 
 const qa: Config = {
