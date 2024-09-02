@@ -47,7 +47,7 @@ const prod: Config = {
         {
           serviceCode: "suomiFiRekisteritiedot.v1",
           endpoint:
-            "https://oph-koski-luovutuspalvelu,opintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
+            "https://oph-koski-luovutuspalvelu.opintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
         },
       ],
     },
