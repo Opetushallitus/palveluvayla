@@ -190,7 +190,7 @@ export async function updateService(
     service,
   );
   if (status !== 200) {
-    throw new Error("Failed to service");
+    throw new Error("Failed to update service");
   }
   console.log("Service updated", body);
   return body;
