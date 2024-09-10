@@ -117,11 +117,16 @@ const dev: Config = {
         },
       ],
     },
+    {
+      wsdlUrl:
+        "https://proxy.dev.palveluvayla.opintopolku.fi/test-service/wsdl",
+      serviceEndpoints: [],
+    },
   ],
   testAllowedSubsystems: [
     {
       clientSubsystemId: `FI-DEV:GOV:2769790-1:test-client`,
-      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
+      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot", "ping"],
     },
   ],
 };

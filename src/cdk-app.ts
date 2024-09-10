@@ -354,6 +354,29 @@ class XroadSecurityServerStack extends cdk.Stack {
       ),
     });
 
+    const testServiceMountPath = "/test-service";
+    const testServiceLambda = new nodejs.NodejsFunction(this, "TestService", {
+      ...sharedLambdaDefaults,
+      entry: path.join(__dirname, "../lambda/test-service/index.ts"),
+      bundling: { sourceMap: true },
+      environment: {
+        FQDN: `proxy.${zoneName}`,
+        MOUNT_PATH: testServiceMountPath,
+      },
+    });
+
+    new apigatewayv2.HttpRoute(this, "TestServiceRoute", {
+      httpApi: httpApi,
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        "TestServiceLambdaIntegration",
+        testServiceLambda
+      ),
+      routeKey: apigatewayv2.HttpRouteKey.with(
+        "/test-service/{proxy+}",
+        apigatewayv2.HttpMethod.ANY
+      ),
+    });
+
     const httpRoute = new apigatewayv2.HttpRoute(this, "HttpRoute", {
       httpApi: httpApi,
       authorizer: authorizer,
