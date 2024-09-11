@@ -9,7 +9,7 @@ exports.handler = async function (
   if (event.rawPath.endsWith("/wsdl")) {
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/xml" },
+      headers: { "Content-Type": "text/xml" },
       body: `
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://test.x-road.global/producer" xmlns:xrd="http://x-road.eu/xsd/xroad.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:id="http://x-road.eu/xsd/identifiers" name="testService" targetNamespace="http://test.x-road.global/producer">
     <wsdl:types>
@@ -99,6 +99,7 @@ exports.handler = async function (
   } else if (event.rawPath.endsWith("/ping")) {
     return {
       statusCode: 200,
+      headers: { "Content-Type": "text/xml" },
       body: `
 <soapenv:envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap"
           xmlns:tns="http://test.x-road.global/producer">
