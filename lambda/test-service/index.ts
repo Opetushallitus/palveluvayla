@@ -91,12 +91,12 @@ exports.handler = async function (
     </wsdl:binding>
     <wsdl:service name="testService">
         <wsdl:port binding="tns:testServiceBinding" name="testServicePort">
-            <soap:address location="https://${fqdn}${mountPath}"/>
+            <soap:address location="https://${fqdn}${mountPath}/ping"/>
         </wsdl:port>
     </wsdl:service>
 </wsdl:definitions>`,
     };
-  } else {
+  } else if (event.rawPath.endsWith("/ping")) {
     return {
       statusCode: 200,
       body: `
@@ -109,6 +109,10 @@ exports.handler = async function (
       </tns:getPingResponse>
    </soapenv:body>
 </soapenv:envelope>`,
+    };
+  } else {
+    return {
+      statusCode: 404,
     };
   }
 };
