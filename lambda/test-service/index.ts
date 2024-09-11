@@ -84,27 +84,28 @@ exports.handler = async function (
       statusCode: 200,
       headers: { "Content-Type": "text/xml" },
       body: `
-<soapenv:envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap"
-                  xmlns:tns="http://example.com/pingpong">
-   <soapenv:Header>
+<soapenv:envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:tns="http://example.com/pingpong"
+                  xmlns:id="http://x-road.eu/xsd/identifiers"
+                  xmlns:xro="http://x-road.eu/xsd/xroad.xsd">
    <soapenv:Header>
      <xro:protocolVersion>4.0</xro:protocolVersion>
+     <xro:userId>123456789</xro:userId>
      <xro:id>ID123456</xro:id>
      <xro:client id:objectType="SUBSYSTEM">
-      <id:xRoadInstance>FI-DEV</id:xRoadInstance>
-      <id:memberClass>GOV</id:memberClass>
-      <id:memberCode>2769790-1</id:memberCode>
-      <id:subsystemCode>test-client</id:subsystemCode>
-    </xro:client>
-    <xro:service id:objectType="SERVICE">
-      <id:xRoadInstance>FI-DEV</id:xRoadInstance>
-      <id:memberClass>GOV</id:memberClass>
-      <id:memberCode>2769790-1</id:memberCode>
-      <id:subsystemCode>test-service</id:subsystemCode>
-      <id:serviceCode>ping</id:serviceCode>
-      <id:serviceVersion>v1</id:serviceVersion>
-    </xro:service>
-   </soapenv:Header>
+       <id:xRoadInstance>FI-DEV</id:xRoadInstance>
+       <id:memberClass>GOV</id:memberClass>
+       <id:memberCode>2769790-1</id:memberCode>
+       <id:subsystemCode>test-client</id:subsystemCode>
+     </xro:client>
+     <xro:service id:objectType="SERVICE">
+       <id:xRoadInstance>FI-DEV</id:xRoadInstance>
+       <id:memberClass>GOV</id:memberClass>
+       <id:memberCode>2769790-1</id:memberCode>
+       <id:subsystemCode>test-service</id:subsystemCode>
+       <id:serviceCode>ping</id:serviceCode>
+       <id:serviceVersion>v1</id:serviceVersion>
+     </xro:service>
    </soapenv:Header>
    <soapenv:Body>
       <tns:PingResponse>pong</tns:PingResponse>
