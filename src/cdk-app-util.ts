@@ -139,6 +139,11 @@ class DeploymentPipelineStack extends cdk.Stack {
             "git-credential-helper": "yes",
           },
           phases: {
+            install: {
+              "runtime-versions": {
+                nodejs: "20.17",
+              },
+            },
             pre_build: {
               commands: [
                 "sudo yum install -y perl-Digest-SHA", // for shasum command

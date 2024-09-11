@@ -2,7 +2,7 @@
 set -o errexit -o nounset -o pipefail
 readonly repo="$(cd "$(dirname "$0")" && pwd)"
 source "${repo}/scripts/lib/common-functions.sh"
-readonly node_version=$(cat "$repo/.nvmrc")
+readonly nvmrc_node_version=$(cat "$repo/.nvmrc")
 
 function main {
   local -r env=$(parse_env_from_script_name)
@@ -150,10 +150,37 @@ function npm_ci_if_package_lock_has_changed {
 }
 
 function init_nodejs {
+  local -r current_node_version=$(node -v)
+
+  if node_is_installed && major_and_minor_version_match "$nvmrc_node_version" "$current_node_version"; then
+    info "Using installed node $current_node_version"
+  else
+    install_nodejs_via_nvm "$nvmrc_node_version"
+  fi
+}
+
+function node_is_installed {
+  command -v node &> /dev/null
+}
+
+function major_and_minor_version_match {
+  local -r left=$(major_and_minor_version_from "$1")
+  local -r right=$(major_and_minor_version_from "$2")
+  [ "$left" == "$right" ]
+}
+
+function major_and_minor_version_from {
+  local -r version="$1"
+  echo -n "$version" | cut -f 1-2 -d '.'
+}
+
+function install_nodejs_via_nvm {
+  local -r nvmrc_node_version="$1"
+  info "Using node ${nvmrc_node_version} via nvm"
   export NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
   set +o errexit
   source "$repo/scripts/nvm.sh"
-  nvm use "${node_version}" || nvm install "${node_version}"
+  nvm use "${nvmrc_node_version}" || nvm install "${nvmrc_node_version}"
   set -o errexit
 }
 
