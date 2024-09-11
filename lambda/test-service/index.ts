@@ -11,29 +11,16 @@ exports.handler = async function (
       statusCode: 200,
       headers: { "Content-Type": "text/xml" },
       body: `
-<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://test.x-road.global/producer" xmlns:xrd="http://x-road.eu/xsd/xroad.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:id="http://x-road.eu/xsd/identifiers" name="testService" targetNamespace="http://test.x-road.global/producer">
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:xrd="http://x-road.eu/xsd/xroad.xsd"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  name="pingService">
     <wsdl:types>
         <xsd:schema elementFormDefault="qualified" targetNamespace="http://test.x-road.global/producer">
             <xsd:import id="xrd" namespace="http://x-road.eu/xsd/xroad.xsd" schemaLocation="http://x-road.eu/xsd/xroad.xsd"/>
-            <xsd:element name="ping">
-                <xsd:complexType/>
-            </xsd:element>
-            <xsd:element name="pingResponse">
-                <xsd:complexType>
-                    <xsd:sequence>
-                        <xsd:element name="data" type="xsd:string">
-                            <xsd:annotation>
-                                <xsd:documentation>
-                                    Service response
-                                </xsd:documentation>
-                                <xsd:appinfo>
-                                    <xrd:title xml:lang="en">Random number response</xrd:title>
-                                </xsd:appinfo>
-                            </xsd:annotation>
-                        </xsd:element>
-                    </xsd:sequence>
-                </xsd:complexType>
-            </xsd:element>
+            <xsd:element name="pingRequest" type="xsd:string"/>
+            <xsd:element name="pingResponse" type="xsd:string"/>
         </xsd:schema>
     </wsdl:types>
 
@@ -46,28 +33,24 @@ exports.handler = async function (
         <wsdl:part name="protocolVersion" element="xrd:protocolVersion"/>
     </wsdl:message>
 
-    <wsdl:message name="ping">
-        <wsdl:part name="body" element="tns:ping"/>
+    <wsdl:message name="pingRequestMessage">
+        <wsdl:part name="parameters" element="xrd:pingRequest"/>
     </wsdl:message>
-    <wsdl:message name="pingResponse">
-        <wsdl:part name="body" element="tns:pingResponse"/>
+    <wsdl:message name="pingResponseMessage">
+        <wsdl:part name="parameters" element="xrd:pingResponse"/>
     </wsdl:message>
 
-    <wsdl:portType name="testServicePortType">
+    <wsdl:portType name="pingPortType">
         <wsdl:operation name="ping">
-            <wsdl:documentation>
-                <xrd:title xml:lang="en">Get random number service</xrd:title>
-                <xrd:notes>This service returns a random number every time.</xrd:notes>
-            </wsdl:documentation>
-            <wsdl:input message="tns:ping"/>
-            <wsdl:output message="tns:pingResponse"/>
+            <wsdl:input message="tns:pingRequestMessage"/>
+            <wsdl:output message="tns:pingResponseMessage"/>
         </wsdl:operation>
     </wsdl:portType>
 
-    <wsdl:binding name="testServiceBinding" type="tns:testServicePortType">
+    <wsdl:binding name="pingBinding" type="tns:pingPortType">
         <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
         <wsdl:operation name="ping">
-            <soap:operation soapAction="" style="document"/>
+            <soap:operation soapAction=""/>
             <xrd:version>v1</xrd:version>
             <wsdl:input>
                 <soap:body parts="body" use="literal"/>
@@ -89,8 +72,8 @@ exports.handler = async function (
             </wsdl:output>
         </wsdl:operation>
     </wsdl:binding>
-    <wsdl:service name="testService">
-        <wsdl:port binding="tns:testServiceBinding" name="testServicePort">
+    <wsdl:service name="pingService">
+        <wsdl:port binding="tns:pingBinding" name="pingPort">
             <soap:address location="https://${fqdn}${mountPath}/ping"/>
         </wsdl:port>
     </wsdl:service>
@@ -102,13 +85,30 @@ exports.handler = async function (
       headers: { "Content-Type": "text/xml" },
       body: `
 <soapenv:envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap"
-          xmlns:tns="http://test.x-road.global/producer">
-   <soapenv:header/>
-   <soapenv:body>
-      <tns:getPingResponse>
-         <tns:data>pong</tns:data>
-      </tns:getPingResponse>
-   </soapenv:body>
+                  xmlns:tns="http://example.com/pingpong">
+   <soapenv:Header>
+   <soapenv:Header>
+     <xro:protocolVersion>4.0</xro:protocolVersion>
+     <xro:id>ID123456</xro:id>
+     <xro:client id:objectType="SUBSYSTEM">
+      <id:xRoadInstance>FI-DEV</id:xRoadInstance>
+      <id:memberClass>GOV</id:memberClass>
+      <id:memberCode>2769790-1</id:memberCode>
+      <id:subsystemCode>test-client</id:subsystemCode>
+    </xro:client>
+    <xro:service id:objectType="SERVICE">
+      <id:xRoadInstance>FI-DEV</id:xRoadInstance>
+      <id:memberClass>GOV</id:memberClass>
+      <id:memberCode>2769790-1</id:memberCode>
+      <id:subsystemCode>test-service</id:subsystemCode>
+      <id:serviceCode>ping</id:serviceCode>
+      <id:serviceVersion>v1</id:serviceVersion>
+    </xro:service>
+   </soapenv:Header>
+   </soapenv:Header>
+   <soapenv:Body>
+      <tns:PingResponse>pong</tns:PingResponse>
+   </soapenv:Body>
 </soapenv:envelope>`,
     };
   } else {
