@@ -15,9 +15,14 @@
          background-color: #000;
      }
 
+     .card-row {
+         display: flex;
+         flex-direction: row;
+         width: 100%;
+     }
+
      .card {
-         width: 200px;
-         height: 100px;
+         flex-grow: 1;
          background-color: #f0f0f0;
          color: white;
          margin: 10px;
@@ -27,14 +32,20 @@
          border-radius: 5px;
      }
 
-     .card.Failed {
-         background-color: #c84242;;
+     .card .stage {
+         display: flex;
+         flex-direction: row;
+         border-radius: 4px;
      }
-
-     .card.Succeeded {
-         background-color: #428ac8;
+     .card .stage .action {
+         text-align: left;
+         display:flex;
+         flex-direction: column;
+         flex-grow: 1;
+         margin: 2px;
+         padding: 3px;
+         border-radius: 4px;
      }
-
 
      @keyframes pulseYellow {
          0% {
@@ -48,10 +59,9 @@
          }
      }
 
-
-     .InProgress {
-         animation: 2s infinite alternate pulseYellow;
-     }
+     .Failed { background-color: #c84242; }
+     .Succeeded { background-color: #428ac8; }
+     .InProgress { animation: 2s infinite alternate pulseYellow; }
     </style>
     <script src=
     "https://sdk.amazonaws.com/js/aws-sdk-2.410.0.min.js"></script>
@@ -65,6 +75,7 @@
          secretAccessKey: secret,
          region: region
      });
+     let codepipeline = new AWS.CodePipeline();
 
      function group(pipelines) {
          const groupFn = pipeline => pipeline.name.split("Deploy")[0] || "Palveluväylä"
@@ -73,8 +84,36 @@
      function sortableName(x) {
          return x.replace("Dev", "1").replace("Qa", "2").replace("Prod", "3");
      }
+     async function pipelineState(name) {
+         const data = await codepipeline.getPipelineState({ name }).promise();
+         console.log(data)
+         const overallState = data.stageStates.map(function (stage) {
+             return stage.latestExecution.status;
+         }).reduce(function (a, b) {
+             return a === 'Failed' || b === 'Failed' ? 'Failed' : a === 'InProgress' || b === 'InProgress' ? 'InProgress' : 'Succeeded';
+         });
+         const actions  = data.stageStates.flatMap(_ => _.actionStates)
+         const lastDeploy = actions.find(a => a.actionName === "Deploy")?.latestExecution.lastStatusChange
+
+         return {
+             name: data.pipelineName,
+             overallState,
+             lastDeploy,
+             stages: data.stageStates.map(stage => {
+                 return {
+                     name: stage.stageName,
+                     status: stage.latestExecution.status,
+                     actions: stage.actionStates.map(action => {
+                          return {
+                              name: action.actionName,
+                              status: action.latestExecution.status
+                          }
+                     })
+                 }
+             }),
+         }
+     }
      async function updatePipelines() {
-         let codepipeline = new AWS.CodePipeline();
          try {
              const data = await codepipeline.listPipelines({}).promise();
              const groups = group(data.pipelines.toSorted((a, b) => {
@@ -89,21 +128,21 @@
                      header.style.color = 'white'
                      document.body.appendChild(header)
                  }
+                 let row = document.getElementById(`row-${project}`)
+                 if (!row) {
+                      row = document.createElement('div')
+                      row.id = `row-${project}`
+                      row.className = 'card-row'
+                      document.body.appendChild(row)
+                 }
                  for (const pipeline of pipelines) {
-                     const data = await codepipeline.getPipelineState({name: pipeline.name}).promise();
-                     var pipelineState = data.stageStates.map(function (stage) {
-                         return stage.latestExecution.status;
-                     }).reduce(function (a, b) {
-                         return a === 'Failed' || b === 'Failed' ? 'Failed' : a === 'InProgress' || b === 'InProgress' ? 'InProgress' : 'Succeeded';
-                     });
+                     const state = await pipelineState(pipeline.name)
+                     const newCard = createCard(state);
                      let card = document.getElementById(pipeline.name);
                      if (card) {
-                         card.className = 'card ' + pipelineState;
+                         card.replaceWith(newCard)
                      } else {
-                         document.body.appendChild(createCard(
-                             pipeline,
-                             pipelineState
-                         ));
+                         row.appendChild(newCard);
                      }
                  }
              }
@@ -112,12 +151,27 @@
          }
      }
 
-     function createCard(pipeline, pipelineState) {
+     function createCard(pipeline) {
          let card = document.createElement('div');
          card.id = pipeline.name;
-         card.className = 'card ' + pipelineState;
          card.innerHTML = pipeline.name;
-         return card;
+         card.className = 'card ' + pipeline.overallState
+         for (const stage of pipeline.stages) {
+              const stageCard = document.createElement('div');
+              //stageCard.innerHTML = stage.name;
+              stageCard.className = 'stage ' + stage.status
+              for (const action of stage.actions) {
+                  const actionCard = document.createElement('div');
+                  actionCard.innerHTML = action.name;
+                  actionCard.className = 'action ' + stage.status
+                  stageCard.appendChild(actionCard)
+              }
+             card.appendChild(stageCard)
+         }
+         const lastDeploy = document.createElement('div');
+         lastDeploy.innerText = pipeline.lastDeploy
+         card.appendChild(lastDeploy)
+         return card
      }
 
      window.onload = updatePipelines
