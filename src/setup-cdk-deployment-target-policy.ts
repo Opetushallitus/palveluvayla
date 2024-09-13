@@ -93,6 +93,11 @@ const PolicyDocument = JSON.stringify({
       Action: ["s3:*"],
       Resource: "*",
     },
+    {
+      Effect: "Allow",
+      Action: ["application-autoscaling:*"],
+      Resource: "*",
+    },
   ],
 });
 
