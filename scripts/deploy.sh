@@ -150,10 +150,13 @@ function npm_ci_if_package_lock_has_changed {
 }
 
 function init_nodejs {
-  local -r current_node_version=$(node -v)
-
-  if node_is_installed && major_and_minor_version_match "$nvmrc_node_version" "$current_node_version"; then
-    info "Using installed node $current_node_version"
+  if node_is_installed; then
+    local -r current_node_version=$(node -v)
+    if major_and_minor_version_match "$nvmrc_node_version" "$current_node_version"; then
+      info "Using installed node $current_node_version"
+    else
+      install_nodejs_via_nvm "$nvmrc_node_version"
+    fi
   else
     install_nodejs_via_nvm "$nvmrc_node_version"
   fi
@@ -175,7 +178,6 @@ function major_and_minor_version_from {
 }
 
 function install_nodejs_via_nvm {
-  local -r nvmrc_node_version="$1"
   info "Using node ${nvmrc_node_version} via nvm"
   export NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
   set +o errexit
