@@ -33,6 +33,7 @@ const PolicyDocument = JSON.stringify({
         "lambda:*",
         "s3:*",
         "application-autoscaling:*",
+        "cloudwatch:*",
       ],
       Resource: "*",
     },
