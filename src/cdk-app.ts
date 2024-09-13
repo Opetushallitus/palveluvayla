@@ -782,6 +782,22 @@ class XroadSecurityServerStack extends cdk.Stack {
       enableExecuteCommand: true,
       healthCheckGracePeriod: cdk.Duration.minutes(3),
     });
+
+    const scaling = service.autoScaleTaskCount({
+      minCapacity: 2,
+      maxCapacity: 8,
+    });
+
+    scaling.scaleOnMetric("ServiceScaling", {
+      metric: service.metricCpuUtilization(),
+      scalingSteps: [
+        { upper: 15, change: -1 },
+        { lower: 50, change: +1 },
+        { lower: 65, change: +2 },
+        { lower: 80, change: +3 },
+      ],
+    });
+
     databaseCluster.connections.allowDefaultPortFrom(service);
     service.connections.allowFrom(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
