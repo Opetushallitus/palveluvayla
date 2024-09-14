@@ -84,7 +84,7 @@ exports.handler = async function (
       statusCode: 200,
       headers: { "Content-Type": "text/xml" },
       body: `
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope"
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:tns="http://example.com/pingpong"
                   xmlns:id="http://x-road.eu/xsd/identifiers"
                   xmlns:xro="http://x-road.eu/xsd/xroad.xsd">
