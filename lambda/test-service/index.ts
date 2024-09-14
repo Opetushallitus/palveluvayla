@@ -84,7 +84,7 @@ exports.handler = async function (
       statusCode: 200,
       headers: { "Content-Type": "text/xml" },
       body: `
-<soapenv:envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope"
                   xmlns:tns="http://example.com/pingpong"
                   xmlns:id="http://x-road.eu/xsd/identifiers"
                   xmlns:xro="http://x-road.eu/xsd/xroad.xsd">
@@ -108,9 +108,9 @@ exports.handler = async function (
      </xro:service>
    </soapenv:Header>
    <soapenv:Body>
-      <tns:PingResponse>pong</tns:PingResponse>
+      <tns:pingResponse>pong</tns:pingResponse>
    </soapenv:Body>
-</soapenv:envelope>`,
+</soapenv:Envelope>`,
     };
   } else {
     return {
