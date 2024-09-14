@@ -108,7 +108,7 @@ exports.handler = async function (
      </xro:service>
    </soapenv:Header>
    <soapenv:Body>
-      <tns:pingResponse>pong</tns:pingResponse>
+      <tns:pingResponse/>
    </soapenv:Body>
 </soapenv:Envelope>`,
     };
