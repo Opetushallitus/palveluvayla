@@ -49,15 +49,6 @@ function deploy_env {
   ENV="${env}" npx cdk --app "npx ts-node ${repo}/src/cdk-app.ts" deploy --require-approval never --all
 }
 
-function login_to_docker_if_possible {
-  if [ -n "${DOCKER_USERNAME:-}" ] && [ -n "${DOCKER_PASSWORD:-}" ]; then
-    info "Logging in to dockerhub"
-    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-  else
-    info "Not logging into dockerhub"
-  fi
-}
-
 function bootstrap_cdk {
   export_aws_credentials "util"
   util_account_id=$(get_aws_account_id_of_env "util")
@@ -82,20 +73,6 @@ function bootstrap_cdk {
 
 function setup_cdk_deployment_target_policies {
   npx ts-node "${repo}/src/setup-cdk-deployment-target-policy.ts"
-}
-
-function is_running_on_codebuild {
-  [ -n "${CODEBUILD_BUILD_ID:-}" ]
-}
-
-function export_aws_credentials {
-  local -r env=$1
-  export AWS_PROFILE="oph-palveluvayla-${env}"
-
-  info "Checking AWS credentials for env $env"
-  if ! aws sts get-caller-identity >/dev/null; then
-    fatal "AWS credentials are not configured env $env. Aborting."
-  fi
 }
 
 function get_aws_region_of_env {

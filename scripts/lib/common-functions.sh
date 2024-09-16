@@ -61,3 +61,16 @@ function export_aws_credentials {
     fatal "AWS credentials are not configured env $env. Aborting."
   fi
 }
+
+function is_running_on_codebuild {
+  [ -n "${CODEBUILD_BUILD_ID:-}" ]
+}
+
+function login_to_docker_if_possible {
+  if [ -n "${DOCKER_USERNAME:-}" ] && [ -n "${DOCKER_PASSWORD:-}" ]; then
+    info "Logging in to dockerhub"
+    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+  else
+    info "Not logging into dockerhub"
+  fi
+}
