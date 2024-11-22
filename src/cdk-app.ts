@@ -386,13 +386,20 @@ class XroadSecurityServerStack extends cdk.Stack {
         apigatewayv2.HttpMethod.ANY,
       ),
     });
-    const onrAccountId = ssm.StringParameter.valueFromLookup(
+    const opintopolkuOnrAccountId = ssm.StringParameter.valueFromLookup(
       this,
       "/env/onr-account-id",
     );
+    const onrAccountId = ssm.StringParameter.valueFromLookup(
+      this,
+      "/env/onr-otuva-account-id",
+    );
     const invokeRole = new iam.Role(this, "ApigwInvokeRole", {
       roleName: "ApigwInvokeRole",
-      assumedBy: new iam.AccountPrincipal(onrAccountId),
+      assumedBy: new iam.CompositePrincipal(
+        new iam.AccountPrincipal(opintopolkuOnrAccountId),
+        new iam.AccountPrincipal(onrAccountId),
+      ),
     });
     httpRoute.grantInvoke(invokeRole);
 
