@@ -37,21 +37,24 @@ class DeploymentStack extends cdk.Stack {
       "DevDeploymentPipeline",
       connection,
       "dev",
-      props
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "main" },
+      props,
     );
     const qaDeploymentPipeline = new DeploymentPipelineStack(
       this,
       "QaDeploymentPipeline",
       connection,
       "qa",
-      props
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-dev" },
+      props,
     );
     const prodDeploymentPipeline = new DeploymentPipelineStack(
       this,
       "ProdDeploymentPipeline",
       connection,
       "prod",
-      props
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-qa" },
+      props,
     );
 
     const radiatorAccountId = "905418271050"
@@ -63,13 +66,20 @@ class DeploymentStack extends cdk.Stack {
   }
 }
 
+type Repository = {
+  owner: string;
+  name: string;
+  branch: string;
+};
+
 class DeploymentPipelineStack extends cdk.Stack {
   constructor(
     scope: constructs.Construct,
     id: string,
     connection: codestarconnections.CfnConnection,
     env: string,
-    props?: cdk.StackProps
+    repository: Repository,
+    props?: cdk.StackProps,
   ) {
     super(scope, id, props);
     const capitalizedEnv = env.charAt(0).toUpperCase() + env.slice(1);
@@ -78,29 +88,17 @@ class DeploymentPipelineStack extends cdk.Stack {
       `Deploy${capitalizedEnv}Pipeline`,
       {
         pipelineName: `Deploy${capitalizedEnv}`,
-      }
+      },
     );
-    let tag;
-    switch (env) {
-      case "dev":
-        tag = "main";
-        break;
-      case "qa":
-        tag = "green-dev";
-        break;
-      case "prod":
-        tag = "green-qa";
-        break;
-    }
     const sourceOutput = new codepipeline.Artifact();
     const sourceAction =
       new codepipeline_actions.CodeStarConnectionsSourceAction({
         actionName: "Source",
         connectionArn: connection.attrConnectionArn,
         codeBuildCloneOutput: true,
-        owner: "Opetushallitus",
-        repo: "palveluvayla",
-        branch: "main",
+        owner: repository.owner,
+        repo: repository.name,
+        branch: repository.branch,
         output: sourceOutput,
         triggerOnPush: env == "dev",
       });
@@ -154,7 +152,6 @@ class DeploymentPipelineStack extends cdk.Stack {
             pre_build: {
               commands: [
                 "sudo yum install -y perl-Digest-SHA", // for shasum command
-                `git checkout ${tag}`,
               ],
             },
             build: {
