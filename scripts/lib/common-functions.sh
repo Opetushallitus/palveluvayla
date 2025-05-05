@@ -49,7 +49,7 @@ function aws {
     --volume "$(pwd):/aws" \
     --rm \
     --interactive \
-    amazon/aws-cli:2.10.0 "$@"
+    amazon/aws-cli:2.15.21 "$@"
 }
 
 function export_aws_credentials {
