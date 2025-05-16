@@ -888,8 +888,8 @@ class XroadSecurityServerStack extends cdk.Stack {
         cloudwatchLogsExports: ["postgresql"],
         instanceProps: {
           instanceType: ec2.InstanceType.of(
-            ec2.InstanceClass.T4G,
-            ec2.InstanceSize.MEDIUM,
+            ec2.InstanceClass.R6G,
+            ec2.InstanceSize.XLARGE,
           ),
           vpc,
           vpcSubnets: {
