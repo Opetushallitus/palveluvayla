@@ -456,6 +456,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       vpc,
       securityGroups: [securityGroup],
       internetFacing: true,
+      crossZoneEnabled: true,
     });
     const cfnNlb = nlb.node.defaultChild as elbv2.CfnLoadBalancer;
     cfnNlb.addDeletionOverride("Properties.Subnets");
