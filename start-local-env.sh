@@ -28,9 +28,9 @@ function start_system {
   local -r public=$(cat ${tempdir}/id_rsa.pub | base64)
   local -r private=$(cat ${tempdir}/id_rsa | base64)
   ssh_public_key=${public} ssh_private_key=${private} \
-    docker-compose --file ${repo}/docker-compose.yml down || true
+    docker compose --file ${repo}/docker-compose.yml down || true
   ssh_public_key=${public} ssh_private_key=${private} \
-    docker-compose --file ${repo}/docker-compose.yml up --force-recreate --build
+    docker compose --file ${repo}/docker-compose.yml up --force-recreate --build
 }
 
 main "$@"
