@@ -2,14 +2,14 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.138",
     "@types/node": "18.14.6",
-    "aws-cdk": "^2.1016.0",
+    "aws-cdk": "^2.1019.1",
     "prettier": "^3.3.3",
     "typescript": "~4.9.5"
   },
   "dependencies": {
     "@aws-sdk/client-iam": "^3.624.0",
     "@aws-sdk/client-sts": "^3.624.0",
-    "aws-cdk-lib": "^2.196.0",
+    "aws-cdk-lib": "^2.202.0",
     "constructs": "^10.2.21",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.1"
