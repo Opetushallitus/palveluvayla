@@ -884,7 +884,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           secretName: "XroadSecurityServerDatabaseCredentials",
         }),
         engine: rds.DatabaseClusterEngine.auroraPostgres({
-          version: rds.AuroraPostgresEngineVersion.VER_16_8, // it's 16.9 really, but it does not exist in current cdk lib (:
+          version: rds.AuroraPostgresEngineVersion.of("16.9", "16"),
         }),
         cloudwatchLogsExports: ["postgresql"],
         instanceProps: {
