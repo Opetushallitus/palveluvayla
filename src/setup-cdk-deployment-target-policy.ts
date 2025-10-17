@@ -34,6 +34,7 @@ const PolicyDocument = JSON.stringify({
         "s3:*",
         "application-autoscaling:*",
         "cloudwatch:*",
+        "sns:*",
       ],
       Resource: "*",
     },
