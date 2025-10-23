@@ -69,7 +69,7 @@ const qa: Config = {
         {
           serviceCode: "opintoOikeudetService.v1",
           endpoint:
-            "https://oph-koski-luovutuspalvelu-qa.testiopintopolku.fi/koski/api/palveluvayla/hsl",
+            "https://luovutuspalvelu.koski.testiopintopolku.fi/koski/api/palveluvayla/hsl",
         },
       ],
     },
@@ -80,7 +80,7 @@ const qa: Config = {
         {
           serviceCode: "suomiFiRekisteritiedot.v1",
           endpoint:
-            "https://oph-koski-luovutuspalvelu-qa.testiopintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
+            "https://luovutuspalvelu.koski.testiopintopolku.fi/koski/api/palveluvayla/suomi-fi-rekisteritiedot",
         },
       ],
     },
