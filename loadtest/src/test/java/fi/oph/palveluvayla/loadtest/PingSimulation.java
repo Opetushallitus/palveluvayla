@@ -10,8 +10,13 @@ import software.amazon.awssdk.auth.signer.params.Aws4SignerParams;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.regions.Region;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static io.gatling.javaapi.core.CoreDsl.*;
 import static io.gatling.javaapi.http.HttpDsl.*;
@@ -20,36 +25,8 @@ public class PingSimulation extends Simulation {
     HttpProtocolBuilder httpProtocol = http
             .baseUrl("https://proxy.dev.palveluvayla.opintopolku.fi")
             .header("Content-Type", "text/xml;charset=UTF-8");
-
-    String soapRequest = """
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:xro="http://x-road.eu/xsd/xroad.xsd"
-                  xmlns:id="http://x-road.eu/xsd/identifiers"
-                  xmlns:prod="http://docs.koski-xroad.fi/producer">
-   <soapenv:Header>
-      <xro:protocolVersion>4.0</xro:protocolVersion>
-      <xro:id>ID123456</xro:id>
-      <xro:userId>123456789</xro:userId>
-      <xro:service id:objectType="SERVICE">
-         <id:xRoadInstance>FI-DEV</id:xRoadInstance>
-         <id:memberClass>GOV</id:memberClass>
-         <id:memberCode>2769790-1</id:memberCode>
-         <id:subsystemCode>test-service</id:subsystemCode>
-         <id:serviceCode>ping</id:serviceCode>
-         <id:serviceVersion>v1</id:serviceVersion>
-      </xro:service>
-      <xro:client id:objectType="SUBSYSTEM">
-         <id:xRoadInstance>FI-DEV</id:xRoadInstance>
-         <id:memberClass>GOV</id:memberClass>
-         <id:memberCode>2769790-1</id:memberCode>
-         <id:subsystemCode>test-client</id:subsystemCode>
-      </xro:client>
-   </soapenv:Header>
-   <soapenv:Body>
-      <prod:ping/>
-   </soapenv:Body>
-</soapenv:Envelope>
-    """;
+    InputStream is = PingSimulation.class.getResourceAsStream("/devsoap.xml");
+    String soapRequest = new BufferedReader(new InputStreamReader(is)).lines().parallel().collect(Collectors.joining("\n"));
 
     ScenarioBuilder scn = scenario("Ping SOAP Test")
             .exec(
