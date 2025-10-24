@@ -53,7 +53,7 @@ class DeploymentStack extends cdk.Stack {
       "ProdDeploymentPipeline",
       connection,
       "prod",
-      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-qa" },
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-dev" },
       props,
     );
 
@@ -112,7 +112,7 @@ class DeploymentPipelineStack extends cdk.Stack {
         repo: repository.name,
         branch: repository.branch,
         output: sourceOutput,
-        triggerOnPush: env == "dev",
+        triggerOnPush: env === "dev" || env === "qa",
       });
     const sourceStage = pipeline.addStage({ stageName: "Source" });
     sourceStage.addAction(sourceAction);
