@@ -88,6 +88,7 @@ class DeploymentPipelineStack extends cdk.Stack {
       `Deploy${capitalizedEnv}Pipeline`,
       {
         pipelineName: `Deploy${capitalizedEnv}`,
+        pipelineType: codepipeline.PipelineType.V1,
       },
     );
     cdk.Tags.of(pipeline).add(
