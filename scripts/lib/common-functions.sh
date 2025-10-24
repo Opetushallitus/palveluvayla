@@ -1,8 +1,4 @@
-#!/usr/bin/env bash
-set -o errexit -o nounset -o pipefail
-
 export repo="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
-node_version=$( cat "$repo/.nvmrc" )
 
 function parse_env_from_script_name {
   local -r file_name="$(basename "$0")"
