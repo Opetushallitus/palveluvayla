@@ -15,6 +15,7 @@ exports.handler = async function (
                   xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
                   xmlns:xrd="http://x-road.eu/xsd/xroad.xsd"
                   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  xmlns:tns="https://${fqdn}${mountPath}/wsdl"
                   name="pingService">
     <wsdl:types>
         <xsd:schema elementFormDefault="qualified" targetNamespace="http://test.x-road.global/producer">
