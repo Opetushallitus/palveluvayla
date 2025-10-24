@@ -136,6 +136,10 @@ class DeploymentPipelineStack extends cdk.Stack {
             type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
             value: `/env/${env}/region`,
           },
+          SLACK_NOTIFICATIONS_CHANNEL_WEBHOOK_URL: {
+            type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: `/env/${env}/slack-notifications-channel-webhook`,
+          },
           GITHUB_DEPLOYMENT_KEY: {
             type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
             value: "/github/deployment_key",
@@ -167,7 +171,9 @@ class DeploymentPipelineStack extends cdk.Stack {
               ],
             },
             build: {
-              commands: [`./deploy-${env}.sh`, `./tag-green-build-${env}.sh`],
+              commands: [
+                `./deploy-${env}.sh && ./tag-green-build-${env}.sh && ./scripts/ci/publish-release-notes-${env}.sh`
+              ],
             },
           },
         }),
