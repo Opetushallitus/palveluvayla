@@ -1,4 +1,5 @@
-export repo="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
+#!/usr/bin/env bash
+set -o errexit -o nounset -o pipefail
 
 function parse_env_from_script_name {
   local -r file_name="$(basename "$0")"
