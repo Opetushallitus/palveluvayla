@@ -5,3 +5,4 @@ cdk.out
 .package-lock.json.checksum
 cdk.context.json
 loadtest/target
+loadtest/gatling_report
