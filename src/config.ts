@@ -84,16 +84,11 @@ const qa: Config = {
         },
       ],
     },
-    {
-      wsdlUrl:
-        "https://proxy.qa.palveluvayla.opintopolku.fi/test-service/wsdl",
-      serviceEndpoints: [],
-    },
   ],
   testAllowedSubsystems: [
     {
       clientSubsystemId: `FI-TEST:GOV:2769790-1:test-client`,
-      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot", "ping"],
+      serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
     },
   ],
 };
