@@ -1,0 +1,27 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:xro="http://x-road.eu/xsd/xroad.xsd"
+                  xmlns:id="http://x-road.eu/xsd/identifiers"
+                  xmlns:prod="http://docs.koski-xroad.fi/producer">
+   <soapenv:Header>
+      <xro:protocolVersion>4.0</xro:protocolVersion>
+      <xro:id>ID123456</xro:id>
+      <xro:userId>123456789</xro:userId>
+      <xro:service id:objectType="SERVICE">
+         <id:xRoadInstance>FI-TEST</id:xRoadInstance>
+         <id:memberClass>GOV</id:memberClass>
+         <id:memberCode>2769790-1</id:memberCode>
+         <id:subsystemCode>test-service</id:subsystemCode>
+         <id:serviceCode>ping</id:serviceCode>
+         <id:serviceVersion>v1</id:serviceVersion>
+      </xro:service>
+      <xro:client id:objectType="SUBSYSTEM">
+         <id:xRoadInstance>FI-TEST</id:xRoadInstance>
+         <id:memberClass>GOV</id:memberClass>
+         <id:memberCode>2769790-1</id:memberCode>
+         <id:subsystemCode>test-client</id:subsystemCode>
+      </xro:client>
+   </soapenv:Header>
+   <soapenv:Body>
+      <prod:ping/>
+   </soapenv:Body>
+</soapenv:Envelope>
