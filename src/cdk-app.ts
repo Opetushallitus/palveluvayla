@@ -642,6 +642,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         cpu: 1024,
         memoryLimitMiB: 4096,
+        runtimePlatform: {
+          operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+          cpuArchitecture: ecs.CpuArchitecture.X86_64,
+        },
       },
     );
     const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
