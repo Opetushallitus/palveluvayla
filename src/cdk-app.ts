@@ -701,6 +701,12 @@ class XroadSecurityServerStack extends cdk.Stack {
           containerPort: this.ports.acme,
         },
       ],
+      systemControls: [
+        {
+          namespace: "net.ipv4.ip_unprivileged_port_start",
+          value: "0"
+        }
+      ],
     });
     container.addMountPoints({
       containerPath: "/etc/xroad",
@@ -827,6 +833,12 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: this.ports.acme,
         },
+      ],
+      systemControls: [
+        {
+          namespace: "net.ipv4.ip_unprivileged_port_start",
+          value: "0"
+        }
       ],
     });
 
