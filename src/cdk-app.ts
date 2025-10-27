@@ -31,7 +31,7 @@ import { EnvName, getConfig } from "./config";
 
 const sharedLambdaDefaults = {
   runtime: lambda.Runtime.NODEJS_20_X,
-  architecture: lambda.Architecture.ARM_64,
+  architecture: lambda.Architecture.X86_64,
   timeout: cdk.Duration.seconds(30),
 };
 
@@ -952,7 +952,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       ),
       bundling: { sourceMap: true },
       runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
@@ -1099,7 +1099,7 @@ class XroadSubsystems extends constructs.Construct {
         ),
         bundling: { sourceMap: true },
         runtime: lambda.Runtime.NODEJS_20_X,
-        architecture: lambda.Architecture.ARM_64,
+        architecture: lambda.Architecture.X86_64,
         timeout: cdk.Duration.minutes(5),
         vpc: props.vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
@@ -1146,7 +1146,7 @@ function addParametersAndSecretsExtension(
   const parametersAndSecretsExtension = lambda.LayerVersion.fromLayerVersionArn(
     scope,
     "ParametersAndSecretsLambdaExtension",
-    "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11",
+    "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11",
   );
 
   func.addLayers(parametersAndSecretsExtension);
