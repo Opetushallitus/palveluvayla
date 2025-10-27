@@ -635,6 +635,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
+      platform: ecr_assets.Platform.LINUX_AMD64,
     });
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -756,6 +757,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.secondary-node",
+      platform: ecr_assets.Platform.LINUX_AMD64,
     });
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -763,6 +765,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       {
         cpu: 1024,
         memoryLimitMiB: 4096,
+        runtimePlatform: {
+          operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+          cpuArchitecture: ecs.CpuArchitecture.X86_64,
+        },
       },
     );
     const container = taskDefinition.addContainer("SecondaryNodeContainer", {
