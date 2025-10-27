@@ -123,7 +123,7 @@ class DeploymentPipelineStack extends cdk.Stack {
         projectName: `Deploy${capitalizedEnv}`,
         concurrentBuildLimit: 1,
         environment: {
-          buildImage: codebuild.LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0,
+          buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2023_5,
           computeType: codebuild.ComputeType.SMALL,
           privileged: true,
         },
