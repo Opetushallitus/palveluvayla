@@ -127,6 +127,7 @@ interface XroadSecurityServerStackProps extends cdk.StackProps {
 class XroadSecurityServerStack extends cdk.Stack {
   private readonly ports = {
     adminUi: 4000,
+    acme: 80,
     informationSystemAccessHttp: 8080,
     informationSystemAccessHttps: 8443,
     healthCheck: 5588,
@@ -696,6 +697,9 @@ class XroadSecurityServerStack extends cdk.Stack {
         {
           containerPort: this.ports.adminUi,
         },
+        {
+          containerPort: this.ports.acme,
+        },
       ],
     });
     container.addMountPoints({
@@ -727,6 +731,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       bastionHost,
       ec2.Port.tcp(this.ports.adminUi),
       "Allow access to admin web app",
+    );
+    ecsService.connections.allowFrom(
+      bastionHost,
+      ec2.Port.tcp(this.ports.acme),
+      "Allow access to acme",
     );
     ecsService.connections.allowFrom(
       certificateValidityLambda,
@@ -814,6 +823,9 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
         {
           containerPort: this.ports.ocspResponse,
+        },
+        {
+          containerPort: this.ports.acme,
         },
       ],
     });
