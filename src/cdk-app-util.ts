@@ -45,7 +45,7 @@ class DeploymentStack extends cdk.Stack {
       "QaDeploymentPipeline",
       connection,
       "qa",
-      { owner: "Opetushallitus", name: "palveluvayla", branch: "x-road-7.7.0" },
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-dev" },
       props,
     );
     const prodDeploymentPipeline = new DeploymentPipelineStack(
@@ -53,7 +53,7 @@ class DeploymentStack extends cdk.Stack {
       "ProdDeploymentPipeline",
       connection,
       "prod",
-      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-dev" },
+      { owner: "Opetushallitus", name: "palveluvayla", branch: "green-qa" },
       props,
     );
 
