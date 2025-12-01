@@ -162,7 +162,7 @@ class DeploymentPipelineStack extends cdk.Stack {
           phases: {
             install: {
               "runtime-versions": {
-                nodejs: "22",
+                nodejs: "20.17",
               },
             },
             pre_build: {
