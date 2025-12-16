@@ -1,4 +1,4 @@
-FROM niis/xroad-security-server-sidecar:7.5.1-secondary-fi
+FROM niis/xroad-security-server-sidecar:7.5.1-secondary-fi@sha256:5919315a92fd12a39109837d9b6c98adb7ece1bb9597bae1a1595c389e4e784d
 
 CMD mkdir /etc/.ssh && \
     chmod 755 /etc/.ssh && \
