@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -o errexit -o nounset -o pipefail
 
+export CDK_DISABLE_CLI_TELEMETRY=true
+
 function parse_env_from_script_name {
   local -r file_name="$(basename "$0")"
   if echo "${file_name}" | grep -E -q '.+-([^-]+)\.sh$'; then
