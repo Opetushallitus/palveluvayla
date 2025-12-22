@@ -1,9 +1,15 @@
 {
-  "extends": ["config:best-practices", ":automergePatch"],
+  "extends": ["config:best-practices", ":automergePatch", ":automergeDigest"],
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "enabled": true,
     "labels": ["security"]
   },
-  "prConcurrentLimit": 10
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "matchFileNames": ["security-server-nodes/*"],
+      "extends": ["config:best-practices", ":automergeDigest"]
+    }
+  ]
 }
