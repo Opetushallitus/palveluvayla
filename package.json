@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "@types/aws-lambda": "8.10.138",
+    "@types/aws-lambda": "8.10.161",
     "@types/node": "24.10.3",
     "aws-cdk": "2.1019.1",
     "prettier": "3.3.3",
