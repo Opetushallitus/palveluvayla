@@ -4,30 +4,31 @@ const host: string = process.env.XROAD_API_HOST!;
 const port: string = process.env.XROAD_API_PORT!;
 const url = `https://${host}:${port}/api/v1/tokens`;
 
+const USAGES: xroad.Key["usage"][] = ["AUTHENTICATION", "SIGNING"];
+
 exports.handler = async () => {
-  return fetchTokens()
-    .then((tokens) =>
-      tokens.map(toCertificatesWithLongestValidDaysLeft).flat()
-    )
-    .then((items) =>
-      items.forEach((item) => console.log(JSON.stringify(item)))
-    );
+  const tokens = await fetchTokens();
+  tokens
+    .flatMap(toValidDaysLeftPerUsage)
+    .forEach((item) => console.log(JSON.stringify(item)));
 };
 
 async function fetchTokens(): Promise<xroad.Token[]> {
-    const apiKey = await getSecret("xroad-api-key");
-    const authorization = `X-Road-ApiKey token=${apiKey}`;
-    const response = await fetch(url, {
-        headers: {
-            Authorization: authorization,
-        },
-    })
-    const tokens: xroad.Token[] = await response.json()
-    console.log(`Got tokens from security server: ${JSON.stringify(tokens, null, 2)}`)
-    return tokens
+  const apiKey = await getSecret("xroad-api-key");
+  const authorization = `X-Road-ApiKey token=${apiKey}`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: authorization,
+    },
+  });
+  const tokens: xroad.Token[] = await response.json();
+  console.log(
+    `Got tokens from security server: ${JSON.stringify(tokens, null, 2)}`
+  );
+  return tokens;
 }
 
-function toValidDaysLeft(certificate: xroad.TokenCertificate) {
+function toValidDaysLeft(certificate: xroad.TokenCertificate): number {
   const now = Date.now();
   const notValidBeforeInMillis = Date.parse(
     certificate.certificate_details.not_before
@@ -38,36 +39,32 @@ function toValidDaysLeft(certificate: xroad.TokenCertificate) {
   const validMillisLeft =
     notValidBeforeInMillis > now ? 0 : notValidAfterInMillis - now;
   const validDaysLeft = Math.floor(validMillisLeft / 1000 / 60 / 60 / 24);
-
   return validDaysLeft > 0 ? validDaysLeft : 0;
 }
 
-function inDescendingOrder(a: number, b: number): number {
-  return b - a;
-}
-
-function longestValidityTimeOfAnUsableCertifcate(key: xroad.Key): number {
-  const sorted = key.certificates
-    .filter(isUsableCertificate)
-    .map(toValidDaysLeft)
-    .sort(inDescendingOrder);
-  return sorted.length > 0 ? sorted[0] : 0;
-}
-
 function isUsableCertificate(certificate: xroad.TokenCertificate): boolean {
-    return certificate.status === "REGISTERED" && certificate.ocsp_status === "OCSP_RESPONSE_GOOD";
+  return (
+    certificate.status === "REGISTERED" &&
+    certificate.ocsp_status === "OCSP_RESPONSE_GOOD"
+  );
 }
 
-function extracted(token: xroad.Token) {
-  return (key: xroad.Key) => ({
+function longestValidDaysLeftAcrossKeys(keys: xroad.Key[]): number {
+  const days = keys
+    .flatMap((k) => k.certificates)
+    .filter(isUsableCertificate)
+    .map(toValidDaysLeft);
+  return days.length > 0 ? Math.max(...days) : 0;
+}
+
+function toValidDaysLeftPerUsage(token: xroad.Token) {
+  return USAGES.map((usage) => ({
     token: token.name,
-    label: key.label,
-    validDaysLeft: longestValidityTimeOfAnUsableCertifcate(key),
-  });
-}
-
-function toCertificatesWithLongestValidDaysLeft(token: xroad.Token) {
-  return token.keys.map(extracted(token));
+    usage,
+    validDaysLeft: longestValidDaysLeftAcrossKeys(
+      token.keys.filter((k) => k.usage === usage)
+    ),
+  }));
 }
 
 async function getSecret(secretId: string): Promise<string> {

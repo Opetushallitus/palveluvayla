@@ -1013,7 +1013,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         metricName,
         filterPattern: logs.FilterPattern.exists("$.validDaysLeft"),
         metricValue: "$.validDaysLeft",
-        dimensions: { label: "$.label", token: "$.token" },
+        dimensions: { token: "$.token", usage: "$.usage" },
       },
     );
 
@@ -1029,7 +1029,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           period: cdk.Duration.minutes(10),
           dimensionsMap: {
             token: "softToken-0",
-            label: "Server Authentication Key",
+            usage: "AUTHENTICATION",
           },
         }),
         threshold: 30,
@@ -1052,7 +1052,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           period: cdk.Duration.minutes(10),
           dimensionsMap: {
             token: "softToken-0",
-            label: "Server Owner Signing Key",
+            usage: "SIGNING",
           },
         }),
         threshold: 30,
