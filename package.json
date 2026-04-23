@@ -2,7 +2,7 @@
   "devDependencies": {
     "@types/aws-lambda": "8.10.161",
     "@types/node": "24.12.2",
-    "aws-cdk": "2.1118.2",
+    "aws-cdk": "2.1118.3",
     "prettier": "3.8.3",
     "typescript": "5.9.3"
   },
