@@ -1,4 +1,4 @@
-FROM maven:3.9.15-amazoncorretto-21@sha256:f8d43a6d1a55d93764fe81bc91f670e233289bd63ca2f5ab3544db3d65edbf82 AS build
+FROM maven:3.9.15-amazoncorretto-21@sha256:3a86e2ab499d09e7e45133dcd4418fbc56be44ab2eb85237e5e16e606056e489 AS build
 WORKDIR /app
 
 ADD pom.xml .
