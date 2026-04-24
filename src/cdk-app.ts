@@ -200,6 +200,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       hostedZone,
       sslCertificate,
       secondaryNodes,
+      props.alarmTopic,
     );
     const nlb = this.createIncomingProxyNlb(vpc, inIpAddresses, secondaryNodes);
 
@@ -551,6 +552,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     hostedZone: route53.HostedZone,
     sslCertificate: acm.Certificate,
     service: ecs.FargateService,
+    alarmTopic: sns.ITopic,
   ) {
     const alb = new elbv2.ApplicationLoadBalancer(this, "OutgoingProxy", {
       vpc,
@@ -564,7 +566,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       zone: hostedZone,
     });
 
-    alb
+    const targetGroup = alb
       .addListener("OutgoingProxyHttp", {
         port: this.ports.alb,
         protocol: elbv2.ApplicationProtocol.HTTPS,
@@ -580,6 +582,30 @@ class XroadSecurityServerStack extends cdk.Stack {
         ],
         healthCheck: this.lbHealthCheck,
       });
+
+    const target5xxAlarm = new cloudwatch.Alarm(
+      this,
+      "OutgoingProxyTarget5xxAlarm",
+      {
+        alarmName: "ALBTarget5XXCount",
+        alarmDescription: "ALB Targetit (X-Road secondary nodet) vastaa 5XX",
+        metric: targetGroup.metrics.httpCodeTarget(
+          elbv2.HttpCodeTarget.TARGET_5XX_COUNT,
+          {
+            statistic: "Sum",
+            period: cdk.Duration.minutes(5),
+          },
+        ),
+        threshold: 5,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        evaluationPeriods: 2,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+        actionsEnabled: true,
+      },
+    );
+    target5xxAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    target5xxAlarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
 
     alb.connections.allowFrom(ec2.Peer.anyIpv4(), ec2.Port.tcp(this.ports.alb));
     service.connections.allowFrom(
