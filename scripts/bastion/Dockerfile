@@ -1,4 +1,4 @@
-FROM amazon/aws-cli:2.34.40@sha256:69f42de2e79bfd7885e935fd0a1c5ef4f8cd744b09a046c98c726e9505f59f46
+FROM amazon/aws-cli:2.34.41@sha256:2614310500ace4ab8e6dbc12dd61a59d709bd9a45283e73e75215226265de972
 
 ARG system_arch
 RUN curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_${system_arch}/session-manager-plugin.rpm" -o "session-manager-plugin.rpm"
