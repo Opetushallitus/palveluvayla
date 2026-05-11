@@ -1,7 +1,7 @@
 {
   "name": "oppijanumerorekisteri-ci",
   "devDependencies": {
-    "@types/node": "24.12.2",
+    "@types/node": "24.12.3",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
   }
