@@ -30,7 +30,7 @@ import * as cloudwatch_actions from "aws-cdk-lib/aws-cloudwatch-actions";
 import { EnvName, getConfig } from "./config";
 
 const sharedLambdaDefaults = {
-  runtime: lambda.Runtime.NODEJS_20_X,
+  runtime: lambda.Runtime.NODEJS_24_X,
   architecture: lambda.Architecture.X86_64,
   timeout: cdk.Duration.seconds(30),
 };
@@ -995,15 +995,13 @@ class XroadSecurityServerStack extends cdk.Stack {
     alarmTopic: sns.ITopic,
   ) {
     const l = new nodejs.NodejsFunction(this, "certificateValidityLeftInDays", {
+      ...sharedLambdaDefaults,
       functionName: "certificate-validity-left-in-days",
       entry: path.join(
         __dirname,
         "../lambda/certificate-validity-left-in-days/index.ts",
       ),
       bundling: { sourceMap: true },
-      runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.X86_64,
-      timeout: cdk.Duration.seconds(30),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
@@ -1143,13 +1141,12 @@ class XroadSubsystems extends constructs.Construct {
       this,
       "XroadSubsystemCustomResourceHandler",
       {
+        ...sharedLambdaDefaults,
         entry: path.join(
           __dirname,
           "../lambda/xroad-subsystem-custom-resource/index.ts",
         ),
         bundling: { sourceMap: true },
-        runtime: lambda.Runtime.NODEJS_20_X,
-        architecture: lambda.Architecture.X86_64,
         timeout: cdk.Duration.minutes(5),
         vpc: props.vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
