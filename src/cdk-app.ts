@@ -215,6 +215,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     );
     const certificateValidityLambda =
       this.createCertificateValidityLeftInDaysLambda(vpc, props.alarmTopic);
+    this.createOpMonitorMetricsLambda(vpc, databaseCluster, props.alarmTopic);
     const primaryNodeService = this.createPrimaryNode(
       vpc,
       databaseCluster,
@@ -1096,6 +1097,78 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     return l;
   }
+
+  private createOpMonitorMetricsLambda(
+    vpc: ec2.Vpc,
+    databaseCluster: rds.DatabaseCluster,
+    alarmTopic: sns.ITopic,
+  ): lambda.Function {
+    const TARGET_FAULT_CODE = "Server.ServerProxy.ServiceFailed.InternalError";
+    const watermarkParameter = new ssm.StringParameter(
+      this,
+      "OpMonitorMetricsWatermark",
+      {
+        parameterName: "/op-monitor-metrics/last-id",
+        stringValue: "0",
+      },
+    );
+
+    const l = new nodejs.NodejsFunction(this, "OpMonitorMetrics", {
+      ...sharedLambdaDefaults,
+      functionName: "op-monitor-metrics",
+      entry: path.join(__dirname, "../lambda/op-monitor-metrics/index.ts"),
+      bundling: {
+        sourceMap: true,
+        nodeModules: ["pg"],
+      },
+      timeout: cdk.Duration.seconds(60),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      environment: {
+        WATERMARK_PARAMETER_NAME: watermarkParameter.parameterName,
+        DB_SECRET_ID: databaseCluster.secret!.secretName,
+        TARGET_FAULT_CODE: TARGET_FAULT_CODE,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+    });
+    addParametersAndSecretsExtension(this, l);
+
+    databaseCluster.connections.allowDefaultPortFrom(l);
+    databaseCluster.secret!.grantRead(l);
+    watermarkParameter.grantRead(l);
+    watermarkParameter.grantWrite(l);
+
+    const rule = new events.Rule(this, "OpMonitorMetricsEveryMinute", {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+    });
+    rule.addTarget(new event_targets.LambdaFunction(l));
+
+    const faultsAlarm = new cloudwatch.Alarm(
+      this,
+      "OpMonitorFaultsExceedThreshold",
+      {
+        alarmName: "op-monitor-fault-detected",
+        alarmDescription: `Op-monitor on raportoinut ${TARGET_FAULT_CODE} -virheen.`,
+        metric: new cloudwatch.Metric({
+          namespace: "OpMonitor",
+          metricName: "Requests",
+          dimensionsMap: { fault_code: TARGET_FAULT_CODE },
+          statistic: "Sum",
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+        actionsEnabled: true,
+      },
+    );
+    faultsAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    faultsAlarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
+
+    return l;
+  }
 }
 
 type XroadSubsystemsProps = {
@@ -1192,7 +1265,7 @@ function addParametersAndSecretsExtension(
   // https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
   const parametersAndSecretsExtension = lambda.LayerVersion.fromLayerVersionArn(
     scope,
-    "ParametersAndSecretsLambdaExtension",
+    `ParametersAndSecretsLambdaExtension-${func.node.id}`,
     "arn:aws:lambda:eu-west-1:015030872274:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11",
   );
 
