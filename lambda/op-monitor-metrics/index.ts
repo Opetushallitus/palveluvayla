@@ -11,7 +11,7 @@ const ROW_LIMIT = 10000;
 const NONE = "none";
 const UNKNOWN = "unknown";
 const DB_NAME = "op-monitor";
-const DB_TABLE = "op_monitor.op_monitor_data";
+const DB_TABLE = "opmonitor.operational_data";
 
 const watermarkParameterName = process.env.WATERMARK_PARAMETER_NAME!;
 const dbSecretId = process.env.DB_SECRET_ID!;
@@ -106,7 +106,7 @@ exports.handler = async (): Promise<void> => {
 
 async function fetchRows(client: Client, lastId: string): Promise<Row[]> {
   const result = await client.query<Row>(
-    `SELECT id, soap_fault_code, soap_fault_string, client_subsystem_code, succeeded
+    `SELECT id, fault_code, fault_string, client_subsystem_code, succeeded
        FROM ${DB_TABLE}
       WHERE id > $1
       ORDER BY id ASC
