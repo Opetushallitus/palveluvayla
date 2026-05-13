@@ -10,6 +10,10 @@
     {
       "matchFileNames": ["security-server-nodes/*"],
       "extends": ["config:best-practices", ":automergeDigest"]
+    },
+    {
+      "matchPackageNames": ["aws-cdk", "aws-cdk-lib", "constructs"],
+      "automerge": true
     }
   ]
 }
