@@ -1122,6 +1122,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         nodeModules: ["pg"],
       },
       timeout: cdk.Duration.seconds(60),
+      reservedConcurrentExecutions: 1,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
