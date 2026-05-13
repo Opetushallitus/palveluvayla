@@ -21,6 +21,7 @@ const ssm = new SSMClient();
 
 type Row = {
   id: string;
+  monitoring_data_ts: string;
   fault_code: string | null;
   fault_string: string | null;
   client_subsystem_code: string | null;
@@ -60,7 +61,10 @@ exports.handler = async (): Promise<void> => {
       return;
     }
 
-    const counts = new Map<string, { key: Key; count: number }>();
+    const buckets = new Map<
+      string,
+      { key: Key; timestampMs: number; count: number }
+    >();
     let maxId = BigInt(lastId);
     for (const row of rows) {
       const key: Key = {
@@ -78,26 +82,28 @@ exports.handler = async (): Promise<void> => {
           })}`,
         );
       }
+      const timestampMs = Number(row.monitoring_data_ts) * 1000;
       const mapKey = [
         key.fault_code,
         key.fault_string,
         key.client_subsystem_code,
         key.succeeded,
+        timestampMs,
       ].join("|");
-      const existing = counts.get(mapKey);
+      const existing = buckets.get(mapKey);
       if (existing) {
         existing.count += 1;
       } else {
-        counts.set(mapKey, { key, count: 1 });
+        buckets.set(mapKey, { key, timestampMs, count: 1 });
       }
       const rowId = BigInt(row.id);
       if (rowId > maxId) maxId = rowId;
     }
 
-    emitMetrics([...counts.values()]);
+    emitMetrics([...buckets.values()]);
     await writeWatermark(maxId.toString());
     console.log(
-      `Emitted ${counts.size} datapoint(s) from ${rows.length} row(s); new watermark id=${maxId}.`,
+      `Emitted ${buckets.size} datapoint(s) from ${rows.length} row(s); new watermark id=${maxId}.`,
     );
   } finally {
     await client.end();
@@ -106,7 +112,7 @@ exports.handler = async (): Promise<void> => {
 
 async function fetchRows(client: Client, lastId: string): Promise<Row[]> {
   const result = await client.query<Row>(
-    `SELECT id, fault_code, fault_string, client_subsystem_code, succeeded
+    `SELECT id, monitoring_data_ts, fault_code, fault_string, client_subsystem_code, succeeded
        FROM ${DB_TABLE}
       WHERE id > $1
       ORDER BY id ASC
@@ -158,12 +164,13 @@ async function readDbCredentials(): Promise<{
   };
 }
 
-function emitMetrics(entries: Array<{ key: Key; count: number }>): void {
-  const timestamp = Date.now();
-  for (const { key, count } of entries) {
+function emitMetrics(
+  entries: Array<{ key: Key; timestampMs: number; count: number }>,
+): void {
+  for (const { key, timestampMs, count } of entries) {
     const emf = {
       _aws: {
-        Timestamp: timestamp,
+        Timestamp: timestampMs,
         CloudWatchMetrics: [
           {
             Namespace: METRIC_NAMESPACE,
