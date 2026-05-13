@@ -21,8 +21,8 @@ const ssm = new SSMClient();
 
 type Row = {
   id: string;
-  soap_fault_code: string | null;
-  soap_fault_string: string | null;
+  fault_code: string | null;
+  fault_string: string | null;
   client_subsystem_code: string | null;
   succeeded: boolean | null;
 };
@@ -64,8 +64,8 @@ exports.handler = async (): Promise<void> => {
     let maxId = BigInt(lastId);
     for (const row of rows) {
       const key: Key = {
-        fault_code: row.soap_fault_code?.trim() || NONE,
-        fault_string: row.soap_fault_string?.trim() || NONE,
+        fault_code: row.fault_code?.trim() || NONE,
+        fault_string: row.fault_string?.trim() || NONE,
         client_subsystem_code: row.client_subsystem_code?.trim() || UNKNOWN,
         succeeded: row.succeeded === null ? UNKNOWN : String(row.succeeded),
       };
