@@ -35,7 +35,7 @@ services:
       - xroad-primary-security-server
 
   xroad-db:
-    image: postgres:16.14@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb
+    image: postgres:16.14@sha256:56e4e0c3ecceda251b068a6c72bc4dfb8b3aaa894830a1ab8dad0c530e47756b
     container_name: xroad-db
     command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
