@@ -965,7 +965,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         instanceProps: {
           instanceType: ec2.InstanceType.of(
             ec2.InstanceClass.R6G,
-            ec2.InstanceSize.XLARGE,
+            ec2.InstanceSize.XLARGE4,
           ),
           vpc,
           vpcSubnets: {
