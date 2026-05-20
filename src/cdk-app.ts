@@ -677,19 +677,38 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       },
     );
-    const fileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
+    const configurationFileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
       vpc,
       encrypted: true,
       enableAutomaticBackups: true,
     });
-    const volume = {
+    const configurationVolume = {
       name: "XroadConfiguration",
       efsVolumeConfiguration: {
-        fileSystemId: fileSystem.fileSystemId,
+        fileSystemId: configurationFileSystem.fileSystemId,
         transitEncryption: "ENABLED",
       },
     };
-    taskDefinition.addVolume(volume);
+    taskDefinition.addVolume(configurationVolume);
+
+    const archiveFileSystem = new efs.FileSystem(
+      this,
+      "PrimaryNodeArchiveFileSystem",
+      {
+        vpc,
+        encrypted: true,
+        enableAutomaticBackups: true,
+        lifecyclePolicy: efs.LifecyclePolicy.AFTER_30_DAYS,
+      },
+    );
+    const archiveVolume = {
+      name: "XroadArchive",
+      efsVolumeConfiguration: {
+        fileSystemId: archiveFileSystem.fileSystemId,
+        transitEncryption: "ENABLED",
+      },
+    };
+    taskDefinition.addVolume(archiveVolume);
 
     const container = taskDefinition.addContainer("PrimaryNodeContainer", {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
@@ -737,7 +756,12 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     container.addMountPoints({
       containerPath: "/etc/xroad",
-      sourceVolume: volume.name,
+      sourceVolume: configurationVolume.name,
+      readOnly: false,
+    });
+    container.addMountPoints({
+      containerPath: "/var/lib/xroad-archive",
+      sourceVolume: archiveVolume.name,
       readOnly: false,
     });
 
@@ -753,7 +777,8 @@ class XroadSecurityServerStack extends cdk.Stack {
         dnsTtl: cdk.Duration.seconds(10),
       },
     });
-    fileSystem.connections.allowDefaultPortFrom(ecsService);
+    configurationFileSystem.connections.allowDefaultPortFrom(ecsService);
+    archiveFileSystem.connections.allowDefaultPortFrom(ecsService);
     databaseCluster.connections.allowDefaultPortFrom(ecsService);
     ecsService.connections.allowFrom(
       secondaryNodes,
