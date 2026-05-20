@@ -760,7 +760,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       readOnly: false,
     });
     container.addMountPoints({
-      containerPath: "/var/lib/xroad-archive",
+      containerPath: "/var/lib/xroad",
       sourceVolume: archiveVolume.name,
       readOnly: false,
     });
