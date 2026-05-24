@@ -1,8 +1,8 @@
 {
   "devDependencies": {
-    "@aws-sdk/client-iam": "3.1050.0",
-    "@aws-sdk/client-ssm": "3.1050.0",
-    "@aws-sdk/client-sts": "3.1050.0",
+    "@aws-sdk/client-iam": "3.1051.0",
+    "@aws-sdk/client-ssm": "3.1051.0",
+    "@aws-sdk/client-sts": "3.1051.0",
     "@types/aws-lambda": "8.10.161",
     "@types/node": "24.12.4",
     "@types/pg": "8.20.0",
