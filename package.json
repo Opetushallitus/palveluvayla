@@ -6,7 +6,7 @@
     "@types/aws-lambda": "8.10.162",
     "@types/node": "24.13.2",
     "@types/pg": "8.20.0",
-    "aws-cdk": "2.1126.0",
+    "aws-cdk": "2.1127.0",
     "aws-cdk-lib": "2.259.0",
     "constructs": "10.6.0",
     "prettier": "3.8.4",
