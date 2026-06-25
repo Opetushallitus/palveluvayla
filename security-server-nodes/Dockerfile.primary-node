@@ -1,4 +1,4 @@
-FROM niis/xroad-security-server-sidecar:7.8.1-primary-fi@sha256:7eaa38ab3e7bc509b437d1c58953612b53cbe0732773deea32b6254c174aaf95
+FROM niis/xroad-security-server-sidecar:7.8.1-primary-fi@sha256:045881fff983ccc0908d332e1a2f017ed1c7946cf7049c49bac83be92f8dba4f
 
 COPY ./local.ini /root/local.ini
 
