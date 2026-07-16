@@ -11,7 +11,7 @@
     "constructs": "10.6.0",
     "prettier": "3.9.5",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "dependencies": {
     "pg": "8.22.0"
