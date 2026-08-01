@@ -8,7 +8,7 @@
     "@types/pg": "8.20.0",
     "aws-cdk": "2.1133.0",
     "aws-cdk-lib": "2.262.2",
-    "constructs": "10.7.1",
+    "constructs": "10.7.2",
     "prettier": "3.9.6",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
