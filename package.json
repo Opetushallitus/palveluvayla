@@ -5,7 +5,7 @@
     "@aws-sdk/client-sts": "3.1102.0",
     "@types/aws-lambda": "8.10.162",
     "@types/node": "24.13.3",
-    "@types/pg": "8.20.3",
+    "@types/pg": "8.20.4",
     "aws-cdk": "2.1135.0",
     "aws-cdk-lib": "2.263.0",
     "constructs": "10.8.1",
