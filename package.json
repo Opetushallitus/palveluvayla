@@ -7,7 +7,7 @@
     "@types/node": "24.13.3",
     "@types/pg": "8.21.0",
     "aws-cdk": "2.1136.0",
-    "aws-cdk-lib": "2.264.0",
+    "aws-cdk-lib": "2.265.0",
     "constructs": "10.8.1",
     "prettier": "3.9.6",
     "ts-node": "10.9.2",
