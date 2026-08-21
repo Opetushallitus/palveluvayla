@@ -9,7 +9,7 @@
   "packageRules": [
     {
       "matchFileNames": ["security-server-nodes/*"],
-      "extends": ["config:best-practices", ":automergeDigest"]
+      "enabled": false
     },
     {
       "matchPackageNames": ["aws-cdk", "aws-cdk-lib", "constructs"],
