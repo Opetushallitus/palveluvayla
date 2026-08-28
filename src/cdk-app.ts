@@ -181,7 +181,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
     const vpc = this.createVpc();
     const bastionHost = this.createBastionHost(vpc);
-    const databaseCluster = this.createDatabaseCluster(vpc, bastionHost);
+    const databaseCluster = this.createDatabaseCluster(vpc, bastionHost, env);
     const ecsCluster = this.createEcsCluster(vpc);
     const namespace = this.createNamespace(vpc);
     const sshKeyPair = this.lookupSshKeyPair();
@@ -974,8 +974,28 @@ class XroadSecurityServerStack extends cdk.Stack {
   private createDatabaseCluster(
     vpc: ec2.Vpc,
     bastionHost: ec2.BastionHostLinux,
+    env: EnvName,
   ) {
     const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
+    const databaseInstanceTypeByEnvironment: Record<EnvName, ec2.InstanceType> =
+      {
+        // Based on the 30-day CloudWatch review: all environments had ~33.5 GiB
+        // minimum FreeableMemory on db.r6g.4xlarge, with no swap activity.
+        dev: ec2.InstanceType.of(
+          ec2.InstanceClass.R8G,
+          ec2.InstanceSize.XLARGE2,
+        ),
+        qa: ec2.InstanceType.of(
+          ec2.InstanceClass.R8G,
+          ec2.InstanceSize.XLARGE2,
+        ),
+        // Keep production at the current memory capacity until representative
+        // production load testing validates the smaller candidate.
+        prod: ec2.InstanceType.of(
+          ec2.InstanceClass.R8G,
+          ec2.InstanceSize.XLARGE4,
+        ),
+      };
     const cluster = new rds.DatabaseCluster(
       this,
       "XroadSecurityServerDatabase",
@@ -988,10 +1008,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         }),
         cloudwatchLogsExports: ["postgresql"],
         instanceProps: {
-          instanceType: ec2.InstanceType.of(
-            ec2.InstanceClass.R6G,
-            ec2.InstanceSize.XLARGE4,
-          ),
+          instanceType: databaseInstanceTypeByEnvironment[env],
           vpc,
           vpcSubnets: {
             subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
