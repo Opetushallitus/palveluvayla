@@ -66,7 +66,7 @@ class AlarmStack extends cdk.Stack {
       new subscriptions.LambdaSubscription(alarmsToSlackLambda),
     );
 
-    const radiatorAccountId = "905418271050"
+    const radiatorAccountId = "905418271050";
     const pagerDutyIntegrationUrlSecret =
       secretsmanager.Secret.fromSecretNameV2(
         this,
@@ -84,12 +84,14 @@ class AlarmStack extends cdk.Stack {
     const radiatorReader = new iam.Role(this, "RadiatorReaderRole", {
       assumedBy: new iam.AccountPrincipal(radiatorAccountId),
       roleName: "RadiatorReader",
-    })
-    radiatorReader.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["cloudwatch:DescribeAlarms"],
-      resources: ["*"],
-    }))
+    });
+    radiatorReader.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["cloudwatch:DescribeAlarms"],
+        resources: ["*"],
+      }),
+    );
   }
 
   createAlarmTopic() {
@@ -398,11 +400,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       httpApi: httpApi,
       integration: new apigatewayv2_integrations.HttpLambdaIntegration(
         "TestServiceLambdaIntegration",
-        testServiceLambda
+        testServiceLambda,
       ),
       routeKey: apigatewayv2.HttpRouteKey.with(
         "/test-service/{proxy+}",
-        apigatewayv2.HttpMethod.ANY
+        apigatewayv2.HttpMethod.ANY,
       ),
     });
 
@@ -679,11 +681,15 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       },
     );
-    const configurationFileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
-      vpc,
-      encrypted: true,
-      enableAutomaticBackups: true,
-    });
+    const configurationFileSystem = new efs.FileSystem(
+      this,
+      "PrimaryNodeFileSystem",
+      {
+        vpc,
+        encrypted: true,
+        enableAutomaticBackups: true,
+      },
+    );
     const configurationVolume = {
       name: "XroadConfiguration",
       efsVolumeConfiguration: {
@@ -755,8 +761,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       systemControls: [
         {
           namespace: "net.ipv4.ip_unprivileged_port_start",
-          value: "0"
-        }
+          value: "0",
+        },
       ],
     });
     container.addMountPoints({
@@ -894,8 +900,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       systemControls: [
         {
           namespace: "net.ipv4.ip_unprivileged_port_start",
-          value: "0"
-        }
+          value: "0",
+        },
       ],
     });
 
@@ -1009,7 +1015,9 @@ class XroadSecurityServerStack extends cdk.Stack {
           rds.ClusterInstance.provisioned("Instance2", {
             instanceType: ec2.InstanceType.of(
               ec2.InstanceClass.R8G,
-              env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.LARGE,
+              env === "prod"
+                ? ec2.InstanceSize.XLARGE4
+                : ec2.InstanceSize.LARGE,
             ),
             isFromLegacyInstanceProps: true,
           }),
