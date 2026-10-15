@@ -227,6 +227,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes,
       certificateValidityLambda,
+      env,
     );
     const subsystems = new XroadSubsystems(this, "Subsystems", {
       vpc,
@@ -659,6 +660,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function,
+    env: EnvName,
   ): ecs.FargateService {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -714,6 +716,9 @@ class XroadSecurityServerStack extends cdk.Stack {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
       environment: {
+        ...(env === "dev" || env === "qa"
+          ? { MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7" }
+          : {}),
         XROAD_LOG_LEVEL: "DEBUG",
         XROAD_DB_HOST: cdk.Token.asString(
           databaseCluster.clusterEndpoint.hostname,
@@ -977,25 +982,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     env: EnvName,
   ) {
     const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
-    const databaseInstanceTypeByEnvironment: Record<EnvName, ec2.InstanceType> =
-      {
-        // Based on the 30-day CloudWatch review: all environments had ~33.5 GiB
-        // minimum FreeableMemory on db.r6g.4xlarge, with no swap activity.
-        dev: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE2,
-        ),
-        qa: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE2,
-        ),
-        // Keep production at the current memory capacity until representative
-        // production load testing validates the smaller candidate.
-        prod: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE4,
-        ),
-      };
     const cluster = new rds.DatabaseCluster(
       this,
       "XroadSecurityServerDatabase",
@@ -1007,13 +993,27 @@ class XroadSecurityServerStack extends cdk.Stack {
           version: rds.AuroraPostgresEngineVersion.of("16.9", "16"),
         }),
         cloudwatchLogsExports: ["postgresql"],
-        instanceProps: {
-          instanceType: databaseInstanceTypeByEnvironment[env],
-          vpc,
-          vpcSubnets: {
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-          },
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
+        // Preserve existing instance logical IDs when migrating from instanceProps.
+        writer: rds.ClusterInstance.provisioned("Instance1", {
+          instanceType: ec2.InstanceType.of(
+            ec2.InstanceClass.R8G,
+            env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.XLARGE,
+          ),
+          isFromLegacyInstanceProps: true,
+        }),
+        readers: [
+          rds.ClusterInstance.provisioned("Instance2", {
+            instanceType: ec2.InstanceType.of(
+              ec2.InstanceClass.R8G,
+              env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.LARGE,
+            ),
+            isFromLegacyInstanceProps: true,
+          }),
+        ],
         storageEncrypted: true,
       },
     );

@@ -7,4 +7,9 @@ CMD mkdir /etc/.ssh && \
     echo -n ${SSH_PUBLIC_KEY_BASE64} | base64 --decode > /etc/.ssh/id_rsa.pub && \
     chmod 644 /etc/.ssh/id_rsa.pub && \
     cp /root/local.ini /etc/xroad/conf.d/local.ini && \
+    if [ -n "${MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS:-}" ]; then \
+      printf '\n[message-log]\nkeep-records-for=%s\n' "${MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS}" >> /etc/xroad/conf.d/local.ini; \
+    fi && \
     /root/entrypoint.sh
+
+    
