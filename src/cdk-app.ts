@@ -733,9 +733,9 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const rule = new events.Rule(this, "MonthlyCleanupRule", {
       schedule: events.Schedule.cron({
-        minute: "*/5",
-        hour: "*",
-        day: "*",
+        minute: "0",
+        hour: "2",
+        day: "1",
         month: "*",
         year: "*",
       }),
