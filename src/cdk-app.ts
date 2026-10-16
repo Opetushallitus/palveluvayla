@@ -53,6 +53,7 @@ class CdkApp extends cdk.App {
   }
 }
 
+
 class AlarmStack extends cdk.Stack {
   public readonly alarmTopic;
 
@@ -123,6 +124,11 @@ class AlarmStack extends cdk.Stack {
 interface XroadSecurityServerStackProps extends cdk.StackProps {
   alarmTopic: sns.ITopic;
 }
+
+type PrimaryNodeResources = {
+  service: ecs.FargateService;
+  archiveFileSystem: efs.FileSystem;
+};
 
 class XroadSecurityServerStack extends cdk.Stack {
   private readonly ports = {
@@ -202,7 +208,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       secondaryNodes,
       props.alarmTopic,
     );
-    const nlb = this.createIncomingProxyNlb(vpc, inIpAddresses, secondaryNodes);
+    this.createIncomingProxyNlb(vpc, inIpAddresses, secondaryNodes);
 
     const proxyLambda = this.createOutgoingProxyLambda(vpc, zoneName);
     this.createApiGateway(
@@ -216,7 +222,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     const certificateValidityLambda =
       this.createCertificateValidityLeftInDaysLambda(vpc, props.alarmTopic);
     this.createOpMonitorMetricsLambda(vpc, databaseCluster, props.alarmTopic);
-    const primaryNodeService = this.createPrimaryNode(
+    const primaryNodeResources = this.createPrimaryNode(
       vpc,
       databaseCluster,
       bastionHost,
@@ -228,6 +234,14 @@ class XroadSecurityServerStack extends cdk.Stack {
       secondaryNodes,
       certificateValidityLambda,
     );
+    this.createLogCleanupTask(
+      vpc,
+      ecsCluster,
+      primaryNodeResources.archiveFileSystem,
+      props.alarmTopic,
+    );
+
+    const primaryNodeService = primaryNodeResources.service;
     const subsystems = new XroadSubsystems(this, "Subsystems", {
       vpc,
       primaryNodeService,
@@ -648,6 +662,126 @@ class XroadSecurityServerStack extends cdk.Stack {
       },
     );
   }
+
+  private createLogCleanupTask(
+    vpc: ec2.Vpc,
+    cluster: ecs.Cluster,
+    archiveFileSystem: efs.FileSystem,
+    alarmTopic: sns.ITopic,
+  ) {
+    const cleanupAccessPoint = new efs.AccessPoint(
+      this,
+      "PrimaryNodeArchiveCleanupAccessPoint",
+      {
+        fileSystem: archiveFileSystem,
+        path: "/",
+      },
+    );
+
+    const taskSg = new ec2.SecurityGroup(this, "CleanupTaskSg", { vpc });
+    archiveFileSystem.connections.allowDefaultPortFrom(
+      taskSg,
+      "Allow NFS from cleanup task",
+    );
+
+    const logGroup = new logs.LogGroup(this, "CleanupLogGroup", {
+      logGroupName: "/ecs/xroad-log-cleanup",
+      retention: logs.RetentionDays.THREE_YEARS,
+    });
+
+    const taskDef = new ecs.FargateTaskDefinition(this, "CleanupTaskDef", {
+      cpu: 256,
+      memoryLimitMiB: 512,
+    });
+
+    taskDef.addVolume({
+      name: "xroad-efs",
+      efsVolumeConfiguration: {
+        fileSystemId: archiveFileSystem.fileSystemId,
+        transitEncryption: "ENABLED",
+        authorizationConfig: {
+          accessPointId: cleanupAccessPoint.accessPointId,
+          iam: "DISABLED",
+        },
+      },
+    });
+
+    const container = taskDef.addContainer("cleanup", {
+      image: ecs.ContainerImage.fromRegistry(
+        "public.ecr.aws/amazonlinux/amazonlinux:2023",
+      ),
+      logging: ecs.LogDrivers.awsLogs({
+        logGroup,
+        streamPrefix: "cleanup",
+      }),
+      environment: {
+        ROOT_PATH: "/var/lib/xroad",
+        RETENTION_DAYS: "1825",
+        DRY_RUN: "true",
+      },
+      command: [
+        "sh",
+        "-c",
+        [
+          "set -euo pipefail",
+          "echo \"Starting cleanup\"",
+          "echo \"root=$ROOT_PATH retention_days=$RETENTION_DAYS dry_run=$DRY_RUN\"",
+          "if [ \"${DRY_RUN}\" = \"true\" ]; then find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print; else find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print -delete; fi",
+          "echo \"Cleanup done\"",
+        ].join(" && "),
+      ],
+    });
+
+    container.addMountPoints({
+      sourceVolume: "xroad-efs",
+      containerPath: "/var/lib/xroad",
+      readOnly: false,
+    });
+
+    const rule = new events.Rule(this, "MonthlyCleanupRule", {
+      schedule: events.Schedule.cron({
+        minute: "0",
+        hour: "2",
+        day: "1",
+        month: "*",
+        year: "*",
+      }),
+    });
+
+    rule.addTarget(
+      new event_targets.EcsTask({
+        cluster,
+        taskDefinition: taskDef,
+        subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        securityGroups: [taskSg],
+        platformVersion: ecs.FargatePlatformVersion.LATEST,
+      }),
+    );
+
+    const failureMetric = new cloudwatch.Metric({
+      namespace: "AWS/ECS",
+      metricName: "TasksStopped",
+      dimensionsMap: {
+        ClusterName: cluster.clusterName,
+      },
+      statistic: "sum",
+      period: cdk.Duration.hours(1),
+    });
+
+    const alarm = new cloudwatch.Alarm(this, "CleanupTaskStoppedAlarm", {
+      metric: failureMetric,
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmDescription: "Investigate if scheduled cleanup task stopped unexpectedly.",
+    });
+
+    alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    alarm.addOkAction(new cloudwatch_actions.SnsAction(alarmTopic));
+  }
+
   private createPrimaryNode(
     vpc: ec2.Vpc,
     databaseCluster: rds.DatabaseCluster,
@@ -659,7 +793,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function,
-  ): ecs.FargateService {
+  ): PrimaryNodeResources {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
@@ -810,7 +944,10 @@ class XroadSecurityServerStack extends cdk.Stack {
       ec2.Port.tcp(this.ports.informationSystemAccessHttp),
       "Allow access to the proxy",
     );
-    return ecsService;
+    return {
+      service: ecsService,
+      archiveFileSystem,
+    };
   }
 
   private createSecondaryNodes(
