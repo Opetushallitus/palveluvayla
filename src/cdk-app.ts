@@ -47,6 +47,10 @@ class CdkApp extends cdk.App {
     };
 
     const alarmStack = new AlarmStack(this, "AlarmStack", stackProps);
+    new LogCleanupStack(this, "LogCleanupStack", {
+      ...stackProps,
+      alarmTopic: alarmStack.alarmTopic,
+    });
     new XroadSecurityServerStack(this, "XroadSecurityServerStack", {
       ...stackProps,
       alarmTopic: alarmStack.alarmTopic,
@@ -54,8 +58,12 @@ class CdkApp extends cdk.App {
   }
 }
 
+interface LogCleanupStackProps extends cdk.StackProps {
+  alarmTopic: sns.ITopic;
+}
+
 class LogCleanupStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: LogCleanupStackProps) {
     super(scope, id, props);
 
     // Use existing VPC/Cluster/EFS in your environment (replace lookups/imports as needed)
@@ -66,7 +74,7 @@ class LogCleanupStack extends cdk.Stack {
       vpc,
       securityGroups: [], // optional; only needed if you want to reference existing SGs
     });
-
+    // TODO: Kaiva ID:t ja SG:t EFS:lle ja AP:lle SSM:stä tai muualta, jotta ei tarvitse kovakoodata
     const fileSystem = efs.FileSystem.fromFileSystemAttributes(this, "XroadEfs", {
       fileSystemId: "fs-xxxxxxxx",
       securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, "EfsSg", "sg-efsxxxx"),
@@ -122,9 +130,9 @@ class LogCleanupStack extends cdk.Stack {
         [
           "set -euo pipefail",
           "echo \"Starting cleanup\"",
-          "find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) | wc -l | xargs echo \"matched_files=\"",
-          "echo \"Dry run: $DRY_RUN\"",
-          "echo \"TODO: run cleanup script here\"",
+          "echo \"root=$ROOT_PATH retention_days=$RETENTION_DAYS dry_run=$DRY_RUN\"",
+          "if [ \"${DRY_RUN}\" = \"true\" ]; then find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print; else find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print -delete; fi",
+          "echo \"Cleanup done\"",
         ].join(" && "),
       ],
     });
@@ -176,13 +184,8 @@ class LogCleanupStack extends cdk.Stack {
       alarmDescription: "Investigate if scheduled cleanup task stopped unexpectedly.",
     });
 
-    const topic = new sns.Topic(this, "OpsTopic", {
-      displayName: "X-Road Cleanup Alerts",
-    });
-
-    // TODO: SLACK VIESTI ALARM EIKÄ MIKÄÄN SPOSTI
-    topic.addSubscription(new subscriptions.EmailSubscription("ops@example.com"));
-    alarm.addAlarmAction(new cloudwatch_actions.SnsAction(topic));
+    alarm.addAlarmAction(new cloudwatch_actions.SnsAction(props.alarmTopic));
+    alarm.addOkAction(new cloudwatch_actions.SnsAction(props.alarmTopic));
   }
 }
 
