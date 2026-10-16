@@ -707,8 +707,11 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
 
     const container = taskDef.addContainer("cleanup", {
-      image: ecs.ContainerImage.fromRegistry(
-        "public.ecr.aws/amazonlinux/amazonlinux:2023",
+      image: ecs.ContainerImage.fromAsset(
+        path.join(__dirname, "../log-cleanup"),
+        {
+          platform: ecr_assets.Platform.LINUX_AMD64,
+        },
       ),
       logging: ecs.LogDrivers.awsLogs({
         logGroup,
