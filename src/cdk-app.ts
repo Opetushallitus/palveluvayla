@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
 import * as constructs from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as route53 from "aws-cdk-lib/aws-route53";
@@ -50,6 +51,138 @@ class CdkApp extends cdk.App {
       ...stackProps,
       alarmTopic: alarmStack.alarmTopic,
     });
+  }
+}
+
+class LogCleanupStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // Use existing VPC/Cluster/EFS in your environment (replace lookups/imports as needed)
+    const vpc = ec2.Vpc.fromLookup(this, "Vpc", { isDefault: false, vpcId: "vpc-xxxxxxxx" });
+
+    const cluster = ecs.Cluster.fromClusterAttributes(this, "SecurityServerCluster", {
+      clusterName: "security-server-cluster",
+      vpc,
+      securityGroups: [], // optional; only needed if you want to reference existing SGs
+    });
+
+    const fileSystem = efs.FileSystem.fromFileSystemAttributes(this, "XroadEfs", {
+      fileSystemId: "fs-xxxxxxxx",
+      securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, "EfsSg", "sg-efsxxxx"),
+    });
+
+    const accessPoint = efs.AccessPoint.fromAccessPointAttributes(this, "XroadAp", {
+      accessPointId: "fsap-xxxxxxxx",
+      fileSystem,
+    });
+
+    // SG for task -> allow NFS to EFS SG
+    const taskSg = new ec2.SecurityGroup(this, "CleanupTaskSg", { vpc });
+    fileSystem.connections.allowDefaultPortFrom(taskSg, "Allow NFS from cleanup task");
+
+    const logGroup = new logs.LogGroup(this, "CleanupLogGroup", {
+      logGroupName: "/ecs/xroad-log-cleanup",
+      retention: logs.RetentionDays.THREE_YEARS,
+    });
+
+    // Task definition
+    const taskDef = new ecs.FargateTaskDefinition(this, "CleanupTaskDef", {
+      cpu: 256,
+      memoryLimitMiB: 512,
+    });
+
+    taskDef.addVolume({
+      name: "xroad-efs",
+      efsVolumeConfiguration: {
+        fileSystemId: fileSystem.fileSystemId,
+        transitEncryption: "ENABLED",
+        authorizationConfig: {
+          accessPointId: accessPoint.accessPointId,
+          iam: "DISABLED", // set ENABLED if your AP policy requires IAM auth
+        },
+      },
+    });
+
+    const container = taskDef.addContainer("cleanup", {
+      image: ecs.ContainerImage.fromRegistry("public.ecr.aws/amazonlinux/amazonlinux:2023"),
+      logging: ecs.LogDrivers.awsLogs({
+        logGroup,
+        streamPrefix: "cleanup",
+      }),
+      environment: {
+        ROOT_PATH: "/var/lib/xroad",
+        RETENTION_DAYS: "1825",
+        DRY_RUN: "true",
+      },
+      // Replace with your own image/script once ready
+      command: [
+        "sh",
+        "-c",
+        [
+          "set -euo pipefail",
+          "echo \"Starting cleanup\"",
+          "find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) | wc -l | xargs echo \"matched_files=\"",
+          "echo \"Dry run: $DRY_RUN\"",
+          "echo \"TODO: run cleanup script here\"",
+        ].join(" && "),
+      ],
+    });
+
+    container.addMountPoints({
+      sourceVolume: "xroad-efs",
+      containerPath: "/var/lib/xroad",
+      readOnly: false,
+    });
+
+    // Monthly schedule (1st day of month at 02:00 UTC)
+    const rule = new events.Rule(this, "MonthlyCleanupRule", {
+      schedule: events.Schedule.cron({
+        minute: "0",
+        hour: "2",
+        day: "1",
+        month: "*",
+        year: "*",
+      }),
+    });
+
+    rule.addTarget(
+        new event_targets.EcsTask({
+          cluster,
+          taskDefinition: taskDef,
+          subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+          securityGroups: [taskSg],
+          platformVersion: ecs.FargatePlatformVersion.LATEST,
+        })
+    );
+
+    // Alerting: ECS task failure metric alarm
+    const failureMetric = new cloudwatch.Metric({
+      namespace: "AWS/ECS",
+      metricName: "TasksStopped",
+      dimensionsMap: {
+        ClusterName: "security-server-cluster",
+      },
+      statistic: "sum",
+      period: cdk.Duration.hours(1),
+    });
+
+    const alarm = new cloudwatch.Alarm(this, "CleanupTaskStoppedAlarm", {
+      metric: failureMetric,
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmDescription: "Investigate if scheduled cleanup task stopped unexpectedly.",
+    });
+
+    const topic = new sns.Topic(this, "OpsTopic", {
+      displayName: "X-Road Cleanup Alerts",
+    });
+
+    // TODO: SLACK VIESTI ALARM EIKÄ MIKÄÄN SPOSTI
+    topic.addSubscription(new subscriptions.EmailSubscription("ops@example.com"));
+    alarm.addAlarmAction(new cloudwatch_actions.SnsAction(topic));
   }
 }
 
