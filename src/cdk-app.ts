@@ -708,8 +708,9 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const container = taskDef.addContainer("cleanup", {
       image: ecs.ContainerImage.fromAsset(
-        path.join(__dirname, "../log-cleanup"),
+        path.join(__dirname, ".."),
         {
+          file: "log-cleanup/Dockerfile",
           platform: ecr_assets.Platform.LINUX_AMD64,
         },
       ),
@@ -722,17 +723,6 @@ class XroadSecurityServerStack extends cdk.Stack {
         RETENTION_DAYS: "1825",
         DRY_RUN: "true",
       },
-      command: [
-        "sh",
-        "-c",
-        [
-          "set -euo pipefail",
-          "echo \"Starting cleanup\"",
-          "echo \"root=$ROOT_PATH retention_days=$RETENTION_DAYS dry_run=$DRY_RUN\"",
-          "if [ \"${DRY_RUN}\" = \"true\" ]; then find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print; else find \"$ROOT_PATH\" -type f \\( -name 'mlog-*.zip' -o -name 'mlog-*.zip.gpg' \\) -mtime +\"$RETENTION_DAYS\" -print -delete; fi",
-          "echo \"Cleanup done\"",
-        ].join(" && "),
-      ],
     });
 
     container.addMountPoints({
