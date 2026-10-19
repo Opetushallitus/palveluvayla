@@ -787,7 +787,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function,
     env: EnvName,
-  ): ecs.FargateService {
+  ): PrimaryNodeResources {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
