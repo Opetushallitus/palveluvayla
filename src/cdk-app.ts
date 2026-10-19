@@ -53,7 +53,6 @@ class CdkApp extends cdk.App {
   }
 }
 
-
 class AlarmStack extends cdk.Stack {
   public readonly alarmTopic;
 
@@ -67,7 +66,7 @@ class AlarmStack extends cdk.Stack {
       new subscriptions.LambdaSubscription(alarmsToSlackLambda),
     );
 
-    const radiatorAccountId = "905418271050"
+    const radiatorAccountId = "905418271050";
     const pagerDutyIntegrationUrlSecret =
       secretsmanager.Secret.fromSecretNameV2(
         this,
@@ -85,12 +84,14 @@ class AlarmStack extends cdk.Stack {
     const radiatorReader = new iam.Role(this, "RadiatorReaderRole", {
       assumedBy: new iam.AccountPrincipal(radiatorAccountId),
       roleName: "RadiatorReader",
-    })
-    radiatorReader.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["cloudwatch:DescribeAlarms"],
-      resources: ["*"],
-    }))
+    });
+    radiatorReader.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["cloudwatch:DescribeAlarms"],
+        resources: ["*"],
+      }),
+    );
   }
 
   createAlarmTopic() {
@@ -233,6 +234,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes,
       certificateValidityLambda,
+      env,
     );
     this.createLogCleanupTask(
       vpc,
@@ -411,11 +413,11 @@ class XroadSecurityServerStack extends cdk.Stack {
       httpApi: httpApi,
       integration: new apigatewayv2_integrations.HttpLambdaIntegration(
         "TestServiceLambdaIntegration",
-        testServiceLambda
+        testServiceLambda,
       ),
       routeKey: apigatewayv2.HttpRouteKey.with(
         "/test-service/{proxy+}",
-        apigatewayv2.HttpMethod.ANY
+        apigatewayv2.HttpMethod.ANY,
       ),
     });
 
@@ -707,13 +709,10 @@ class XroadSecurityServerStack extends cdk.Stack {
     });
 
     const container = taskDef.addContainer("cleanup", {
-      image: ecs.ContainerImage.fromAsset(
-        path.join(__dirname, ".."),
-        {
-          file: "log-cleanup/Dockerfile",
-          platform: ecr_assets.Platform.LINUX_AMD64,
-        },
-      ),
+      image: ecs.ContainerImage.fromAsset(path.join(__dirname, ".."), {
+        file: "log-cleanup/Dockerfile",
+        platform: ecr_assets.Platform.LINUX_AMD64,
+      }),
       logging: ecs.LogDrivers.awsLogs({
         logGroup,
         streamPrefix: "cleanup",
@@ -768,7 +767,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       datapointsToAlarm: 1,
       comparisonOperator:
         cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-      alarmDescription: "Investigate if scheduled cleanup task stopped unexpectedly.",
+      alarmDescription:
+        "Investigate if scheduled cleanup task stopped unexpectedly.",
     });
 
     alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
@@ -786,6 +786,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function,
+    env: EnvName,
   ): PrimaryNodeResources {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
@@ -804,11 +805,15 @@ class XroadSecurityServerStack extends cdk.Stack {
         },
       },
     );
-    const configurationFileSystem = new efs.FileSystem(this, "PrimaryNodeFileSystem", {
-      vpc,
-      encrypted: true,
-      enableAutomaticBackups: true,
-    });
+    const configurationFileSystem = new efs.FileSystem(
+      this,
+      "PrimaryNodeFileSystem",
+      {
+        vpc,
+        encrypted: true,
+        enableAutomaticBackups: true,
+      },
+    );
     const configurationVolume = {
       name: "XroadConfiguration",
       efsVolumeConfiguration: {
@@ -841,6 +846,9 @@ class XroadSecurityServerStack extends cdk.Stack {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
       environment: {
+        ...(env === "dev" || env === "qa"
+          ? { MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7" }
+          : {}),
         XROAD_LOG_LEVEL: "DEBUG",
         XROAD_DB_HOST: cdk.Token.asString(
           databaseCluster.clusterEndpoint.hostname,
@@ -877,8 +885,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       systemControls: [
         {
           namespace: "net.ipv4.ip_unprivileged_port_start",
-          value: "0"
-        }
+          value: "0",
+        },
       ],
     });
     container.addMountPoints({
@@ -1019,8 +1027,8 @@ class XroadSecurityServerStack extends cdk.Stack {
       systemControls: [
         {
           namespace: "net.ipv4.ip_unprivileged_port_start",
-          value: "0"
-        }
+          value: "0",
+        },
       ],
     });
 
@@ -1107,25 +1115,6 @@ class XroadSecurityServerStack extends cdk.Stack {
     env: EnvName,
   ) {
     const dbAdminName = ssm.StringParameter.valueFromLookup(this, "/db/admin");
-    const databaseInstanceTypeByEnvironment: Record<EnvName, ec2.InstanceType> =
-      {
-        // Based on the 30-day CloudWatch review: all environments had ~33.5 GiB
-        // minimum FreeableMemory on db.r6g.4xlarge, with no swap activity.
-        dev: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE2,
-        ),
-        qa: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE2,
-        ),
-        // Keep production at the current memory capacity until representative
-        // production load testing validates the smaller candidate.
-        prod: ec2.InstanceType.of(
-          ec2.InstanceClass.R8G,
-          ec2.InstanceSize.XLARGE4,
-        ),
-      };
     const cluster = new rds.DatabaseCluster(
       this,
       "XroadSecurityServerDatabase",
@@ -1137,13 +1126,29 @@ class XroadSecurityServerStack extends cdk.Stack {
           version: rds.AuroraPostgresEngineVersion.of("16.9", "16"),
         }),
         cloudwatchLogsExports: ["postgresql"],
-        instanceProps: {
-          instanceType: databaseInstanceTypeByEnvironment[env],
-          vpc,
-          vpcSubnets: {
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-          },
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
+        // Preserve existing instance logical IDs when migrating from instanceProps.
+        writer: rds.ClusterInstance.provisioned("Instance1", {
+          instanceType: ec2.InstanceType.of(
+            ec2.InstanceClass.R8G,
+            env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.XLARGE,
+          ),
+          isFromLegacyInstanceProps: true,
+        }),
+        readers: [
+          rds.ClusterInstance.provisioned("Instance2", {
+            instanceType: ec2.InstanceType.of(
+              ec2.InstanceClass.R8G,
+              env === "prod"
+                ? ec2.InstanceSize.XLARGE4
+                : ec2.InstanceSize.LARGE,
+            ),
+            isFromLegacyInstanceProps: true,
+          }),
+        ],
         storageEncrypted: true,
       },
     );
