@@ -1,0 +1,5 @@
+*
+!log-cleanup/
+!log-cleanup/Dockerfile
+!scripts/
+!scripts/log-cleanup.sh

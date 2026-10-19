@@ -6,3 +6,4 @@ cdk.out
 cdk.context.json
 loadtest/target
 loadtest/gatling_report
+.idea
