@@ -723,7 +723,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       }),
       environment: {
         ROOT_PATH: "/var/lib/xroad",
-        RETENTION_DAYS: "1825",
+        RETENTION_DAYS: String(cleanupConfig.retentionDays),
         DRY_RUN: String(cleanupConfig.dryRun),
       },
     });

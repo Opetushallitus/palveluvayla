@@ -12,6 +12,7 @@ export type Config = {
   logCleanupTask: {
     enabled: boolean;
     dryRun: boolean;
+    retentionDays: number;
     schedule: {
       minute: string;
       hour: string;
@@ -43,6 +44,7 @@ const prod: Config = {
   logCleanupTask: {
     enabled: false,
     dryRun: true,
+    retentionDays:1825,
     schedule: { minute: "0", hour: "2", day: "1", month: "*", year: "*" },
   },
   xroadEnvironment: "FI",
@@ -80,6 +82,7 @@ const qa: Config = {
   logCleanupTask: {
     enabled: true,
     dryRun: true,
+    retentionDays: 30,
     schedule: { minute: "*/5", hour: "*", day: "*", month: "*", year: "*" },
   },
   xroadEnvironment: "FI-TEST",
@@ -118,6 +121,7 @@ const dev: Config = {
   logCleanupTask: {
     enabled: true,
     dryRun: true,
+    retentionDays:30,
     schedule: { minute: "0", hour: "2", day: "1", month: "*", year: "*" },
   },
   xroadEnvironment: "FI-DEV",
