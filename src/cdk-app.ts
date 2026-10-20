@@ -236,12 +236,15 @@ class XroadSecurityServerStack extends cdk.Stack {
       certificateValidityLambda,
       env,
     );
-    this.createLogCleanupTask(
-      vpc,
-      ecsCluster,
-      primaryNodeResources.archiveFileSystem,
-      props.alarmTopic,
-    );
+    if (config.logCleanupTask.enabled) {
+      this.createLogCleanupTask(
+        vpc,
+        ecsCluster,
+        primaryNodeResources.archiveFileSystem,
+        props.alarmTopic,
+        config.logCleanupTask,
+      );
+    }
 
     const primaryNodeService = primaryNodeResources.service;
     const subsystems = new XroadSubsystems(this, "Subsystems", {
@@ -670,6 +673,7 @@ class XroadSecurityServerStack extends cdk.Stack {
     cluster: ecs.Cluster,
     archiveFileSystem: efs.FileSystem,
     alarmTopic: sns.ITopic,
+    cleanupConfig: ReturnType<typeof getConfig>["logCleanupTask"],
   ) {
     const cleanupAccessPoint = new efs.AccessPoint(
       this,
@@ -720,7 +724,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       environment: {
         ROOT_PATH: "/var/lib/xroad",
         RETENTION_DAYS: "1825",
-        DRY_RUN: "true",
+        DRY_RUN: String(cleanupConfig.dryRun),
       },
     });
 
@@ -732,11 +736,7 @@ class XroadSecurityServerStack extends cdk.Stack {
 
     const rule = new events.Rule(this, "MonthlyCleanupRule", {
       schedule: events.Schedule.cron({
-        minute: "0",
-        hour: "2",
-        day: "1",
-        month: "*",
-        year: "*",
+        ...cleanupConfig.schedule,
       }),
     });
 

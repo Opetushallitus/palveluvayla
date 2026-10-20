@@ -9,6 +9,17 @@ export type WsdlService = {
 };
 
 export type Config = {
+  logCleanupTask: {
+    enabled: boolean;
+    dryRun: boolean;
+    schedule: {
+      minute: string;
+      hour: string;
+      day: string;
+      month: string;
+      year: string;
+    };
+  };
   xroadEnvironment: "FI" | "FI-TEST" | "FI-DEV";
   testWsdlServices: Array<WsdlService>;
   testAllowedSubsystems: Array<{
@@ -29,6 +40,11 @@ export function getConfig(env: EnvName): Config {
 }
 
 const prod: Config = {
+  logCleanupTask: {
+    enabled: false,
+    dryRun: true,
+    schedule: { minute: "0", hour: "2", day: "1", month: "*", year: "*" },
+  },
   xroadEnvironment: "FI",
   testWsdlServices: [
     {
@@ -61,6 +77,11 @@ const prod: Config = {
 };
 
 const qa: Config = {
+  logCleanupTask: {
+    enabled: true,
+    dryRun: true,
+    schedule: { minute: "*/5", hour: "*", day: "*", month: "*", year: "*" },
+  },
   xroadEnvironment: "FI-TEST",
   testWsdlServices: [
     {
@@ -94,6 +115,11 @@ const qa: Config = {
 };
 
 const dev: Config = {
+  logCleanupTask: {
+    enabled: true,
+    dryRun: true,
+    schedule: { minute: "0", hour: "2", day: "1", month: "*", year: "*" },
+  },
   xroadEnvironment: "FI-DEV",
   testWsdlServices: [
     {
