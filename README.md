@@ -44,6 +44,41 @@ The archive EFS configuration is the same in all environments:
 - `lifecyclePolicy: AFTER_30_DAYS` transitions eligible files from EFS Standard to Infrequent Access (IA) after 30 days without access in Standard. This is a storage cost policy, not an expiry or deletion policy.
 - No transition to the EFS Archive storage class or automatic return to Standard on access is configured. X-Road archive files and the EFS Archive storage class are separate concepts. See [EFS lifecycle management](https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html).
 
-The repository does not configure scheduled deletion or a maximum retention period for archive files. They remain on EFS until explicitly removed, even after their corresponding database records are cleaned up. Consequently, the seven-day database retention in dev and QA does not limit archive file retention, and archive storage can continue to grow. Backup recovery points have their own retention under AWS Backup; this repository enables backups but does not define a custom backup retention policy.
+The EFS archive cleanup described below is separate from database retention: deleting a database record does not remove its archive file, and the database's seven-day dev/QA retention does not determine how long files stay on EFS. Backup recovery points have their own retention under AWS Backup; this repository enables backups but does not define a custom backup retention policy.
 
-**NOTE! Message log retention in the EFS is an upcoming feature, will be implemented later**
+#### Message log retention in the EFS
+CDK can create a scheduled ECS Fargate cleanup task for the primary node's archive EFS. It mounts the file system at `/var/lib/xroad` through an EFS access point and scans that directory recursively. The script selects regular files matching `mlog-*.zip` or `mlog-*.zip.gpg` whose filesystem modification time is older than the configured retention period. It does not use the date embedded in the archive filename, remove other file types, or change database records. GNU `find`'s `-mtime` age is based on full 24-hour periods.
+
+Current environment settings in [`config.ts`](src/config.ts) are:
+
+| Environment  | EFS cleanup | Configured age | Schedule                      | Mode    |
+| ------------ | ----------- | -------------- | ----------------------------- | ------- |
+| Dev          | Enabled     | 30 days        | Monthly, 1st day at 02:00 UTC | Dry run |
+| QA           | Enabled     | 30 days        | Every 5 minutes               | Dry run |
+| Production   | Disabled    | 1,825 days     | Not scheduled                 | Dry run |
+
+In dev and QA, `DRY_RUN=true` means the task reports how many matching files and bytes it found, but does not delete them. To actually remove files, the environment's cleanup must be enabled and `DRY_RUN` changed to `false`; review the findings before doing so. When deletion is enabled, the script removes only the matching files older than the configured age. The task writes to the `/ecs/xroad-log-cleanup` CloudWatch log group, retained for three years, and CDK configures an alarm for stopped ECS tasks. EFS lifecycle transition to Infrequent Access after 30 days is independent of this cleanup and does not delete files.
+
+#### Inspecting the archived files in EFS with AWS CloudShell
+The CloudShell VPC ID has been added to the EFS mount target security group as an inbound rule. 
+You can mount the EFS in CloudShell to inspect the archived files. This requires amazon-efs-utils to be installed in CloudShell. 
+The following commands will mount the EFS to /mnt/efs and list the files.
+
+`sudo dnf install -y amazon-efs-utils`
+`sudo mkdir -p /mnt/efs`
+
+The following command will give the warning "Could not start amazon-efs-mount-watchdog, unrecognized init system "node"", this is ok.
+Check the EFS DNS name from the EFS XroadSecurityServerStack/PrimaryNodeArchiveFileSystem filesystem's DNS name, it should start with fs- and end with .efs.<region>.amazonaws.com. Use that in the command below.
+Might not work if it has .efs.<region>.amazonaws.com in the end.
+`sudo mount -t efs -o tls,ro [EFS DNS name starting with fs-]:/ /mnt/efs`
+
+Check the files exist
+`findmnt /mnt/efs`
+
+List the files (Don't do in prod. too many files to list)
+`sudo ls -lah /mnt/efs`
+
+Check the oldest start date from the file names
+`find /mnt/efs -maxdepth 1 -name 'mlog-*' | sort | head`
+
+Example file name which has currently the oldest start date: `mlog-20241205070349-20260814030958-28b7134f3708e679.zip`
