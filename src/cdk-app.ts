@@ -1134,7 +1134,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         writer: rds.ClusterInstance.provisioned("Instance1", {
           instanceType: ec2.InstanceType.of(
             ec2.InstanceClass.R8G,
-            env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.XLARGE,
+            ec2.InstanceSize.XLARGE,
           ),
           isFromLegacyInstanceProps: true,
         }),
@@ -1142,9 +1142,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           rds.ClusterInstance.provisioned("Instance2", {
             instanceType: ec2.InstanceType.of(
               ec2.InstanceClass.R8G,
-              env === "prod"
-                ? ec2.InstanceSize.XLARGE4
-                : ec2.InstanceSize.LARGE,
+              ec2.InstanceSize.LARGE,
             ),
             isFromLegacyInstanceProps: true,
           }),
