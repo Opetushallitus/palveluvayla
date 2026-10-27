@@ -846,9 +846,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
       environment: {
-        ...(env === "dev" || env === "qa"
-          ? { MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7" }
-          : {}),
+        MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7",
         XROAD_LOG_LEVEL: "DEBUG",
         XROAD_DB_HOST: cdk.Token.asString(
           databaseCluster.clusterEndpoint.hostname,
