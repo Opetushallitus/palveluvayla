@@ -846,9 +846,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       image: ecs.ContainerImage.fromDockerImageAsset(asset),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "PrimaryNode" }),
       environment: {
-        ...(env === "dev" || env === "qa"
-          ? { MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7" }
-          : {}),
+        MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS: "7",
         XROAD_LOG_LEVEL: "DEBUG",
         XROAD_DB_HOST: cdk.Token.asString(
           databaseCluster.clusterEndpoint.hostname,
@@ -1134,7 +1132,7 @@ class XroadSecurityServerStack extends cdk.Stack {
         writer: rds.ClusterInstance.provisioned("Instance1", {
           instanceType: ec2.InstanceType.of(
             ec2.InstanceClass.R8G,
-            env === "prod" ? ec2.InstanceSize.XLARGE4 : ec2.InstanceSize.XLARGE,
+            ec2.InstanceSize.XLARGE,
           ),
           isFromLegacyInstanceProps: true,
         }),
@@ -1142,9 +1140,7 @@ class XroadSecurityServerStack extends cdk.Stack {
           rds.ClusterInstance.provisioned("Instance2", {
             instanceType: ec2.InstanceType.of(
               ec2.InstanceClass.R8G,
-              env === "prod"
-                ? ec2.InstanceSize.XLARGE4
-                : ec2.InstanceSize.LARGE,
+              ec2.InstanceSize.LARGE,
             ),
             isFromLegacyInstanceProps: true,
           }),

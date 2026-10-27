@@ -5,15 +5,9 @@
 
 ## Database
 
-Each environment has an Amazon Aurora PostgreSQL cluster, configured in [`createDatabaseCluster`](src/cdk-app.ts). The engine version is configured as PostgreSQL 16.9. The cluster has one writer and one reader:
+Each environment has an Amazon Aurora PostgreSQL cluster, configured in [`createDatabaseCluster`](src/cdk-app.ts). The engine version is configured as PostgreSQL 16.9. The cluster has one writer and one reader, with sizes `db.r8g.xlarge` and `db.r8g.large` respectively.
 
-| Environment | Writer           | Reader           |
-| ----------- | ---------------- | ---------------- |
-| Dev         | `db.r8g.xlarge`  | `db.r8g.large`   |
-| QA          | `db.r8g.xlarge`  | `db.r8g.large`   |
-| Production  | `db.r8g.4xlarge` | `db.r8g.4xlarge` |
-
-Both primary and secondary X-Road containers connect to the cluster's writer endpoint through `XROAD_DB_HOST` and `XROAD_DB_PORT`. Application traffic is not routed to the reader endpoint. The reader provides a failover target if the writer becomes unavailable; in dev and QA, it has less capacity than the writer.
+Both primary and secondary X-Road containers connect to the cluster's writer endpoint through `XROAD_DB_HOST` and `XROAD_DB_PORT`. Application traffic is not routed to the reader endpoint. The reader provides a failover target if the writer becomes unavailable; it has less capacity than the writer.
 
 The database instances run in private isolated VPC subnets, and cluster storage is encrypted. Database access is allowed from the X-Road services, the bastion host, and the operational monitoring metrics Lambda. PostgreSQL logs are exported to CloudWatch Logs.
 
@@ -23,12 +17,12 @@ The database administrator username comes from the SSM parameter `/db/admin`. Th
 
 The X-Road images are pinned to version 7.5.1. Database log retention is configured as follows:
 
-| Data                           | Dev / QA retention | Production retention | Cleanup frequency |
-| ------------------------------ | ------------------ | -------------------- | ----------------- |
-| Message logs                   | 7 days             | 30 days              | Every 12 hours    |
-| Operational monitoring records | 7 days             | 7 days               | Every 12 hours    |
+| Data                           | Retention | Cleanup frequency |
+| ------------------------------ | --------- | ----------------- |
+| Message logs                   | 7 days    | Every 12 hours    |
+| Operational monitoring records | 7 days    | Every 12 hours    |
 
-For dev and QA, CDK sets `MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS=7` on the primary container. This is a repository-specific startup setting: the [`primary Dockerfile`](security-server-nodes/Dockerfile.primary-node) copies [`local.ini`](security-server-nodes/local.ini) into `/etc/xroad/conf.d/local.ini` and appends `[message-log]` with `keep-records-for=7` before starting X-Road. Production leaves this setting unset and uses X-Road's default 30-day message log retention. Operational monitoring retention and both cleanup schedules use the X-Road defaults.
+CDK sets `MESSAGE_LOG_KEEP_RECORDS_FOR_DAYS=7` on the primary container. This is a repository-specific startup setting: the [`primary Dockerfile`](security-server-nodes/Dockerfile.primary-node) copies [`local.ini`](security-server-nodes/local.ini) into `/etc/xroad/conf.d/local.ini` and appends `[message-log]` with `keep-records-for=7` before starting X-Road. Operational monitoring retention and both cleanup schedules use the X-Road defaults.
 
 Message log cleanup removes eligible timestamped and archived records from the database. It does not delete archive files in `/var/lib/xroad`, which are stored on EFS and have a separate lifecycle.
 
@@ -44,24 +38,26 @@ The archive EFS configuration is the same in all environments:
 - `lifecyclePolicy: AFTER_30_DAYS` transitions eligible files from EFS Standard to Infrequent Access (IA) after 30 days without access in Standard. This is a storage cost policy, not an expiry or deletion policy.
 - No transition to the EFS Archive storage class or automatic return to Standard on access is configured. X-Road archive files and the EFS Archive storage class are separate concepts. See [EFS lifecycle management](https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html).
 
-The EFS archive cleanup described below is separate from database retention: deleting a database record does not remove its archive file, and the database's seven-day dev/QA retention does not determine how long files stay on EFS. Backup recovery points have their own retention under AWS Backup; this repository enables backups but does not define a custom backup retention policy.
+The EFS archive cleanup described below is separate from database retention: deleting a database record does not remove its archive file, and the database's seven-day retention does not determine how long files stay on EFS. Backup recovery points have their own retention under AWS Backup; this repository enables backups but does not define a custom backup retention policy.
 
 #### Message log retention in the EFS
+
 CDK can create a scheduled ECS Fargate cleanup task for the primary node's archive EFS. It mounts the file system at `/var/lib/xroad` through an EFS access point and scans that directory recursively. The script selects regular files matching `mlog-*.zip` or `mlog-*.zip.gpg` whose filesystem modification time is older than the configured retention period. It does not use the date embedded in the archive filename, remove other file types, or change database records. GNU `find`'s `-mtime` age is based on full 24-hour periods.
 
 Current environment settings in [`config.ts`](src/config.ts) are:
 
-| Environment  | EFS cleanup | Configured age | Schedule                      | Mode    |
-| ------------ | ----------- | -------------- | ----------------------------- | ------- |
-| Dev          | Enabled     | 30 days        | Monthly, 1st day at 02:00 UTC | Dry run |
-| QA           | Enabled     | 30 days        | Every 5 minutes               | Dry run |
-| Production   | Disabled    | 1,825 days     | Not scheduled                 | Dry run |
+| Environment | EFS cleanup | Configured age | Schedule                      | Mode    |
+| ----------- | ----------- | -------------- | ----------------------------- | ------- |
+| Dev         | Enabled     | 30 days        | Monthly, 1st day at 02:00 UTC | Dry run |
+| QA          | Enabled     | 30 days        | Every 5 minutes               | Dry run |
+| Production  | Disabled    | 1,825 days     | Not scheduled                 | Dry run |
 
 In dev and QA, `DRY_RUN=true` means the task reports how many matching files and bytes it found, but does not delete them. To actually remove files, the environment's cleanup must be enabled and `DRY_RUN` changed to `false`; review the findings before doing so. When deletion is enabled, the script removes only the matching files older than the configured age. The task writes to the `/ecs/xroad-log-cleanup` CloudWatch log group, retained for three years, and CDK configures an alarm for stopped ECS tasks. EFS lifecycle transition to Infrequent Access after 30 days is independent of this cleanup and does not delete files.
 
 #### Inspecting the archived files in EFS with AWS CloudShell
-The CloudShell VPC ID has been added to the EFS mount target security group as an inbound rule. 
-You can mount the EFS in CloudShell to inspect the archived files. This requires amazon-efs-utils to be installed in CloudShell. 
+
+The CloudShell VPC ID has been added to the EFS mount target security group as an inbound rule.
+You can mount the EFS in CloudShell to inspect the archived files. This requires amazon-efs-utils to be installed in CloudShell.
 The following commands will mount the EFS to /mnt/efs and list the files.
 
 `sudo dnf install -y amazon-efs-utils`
