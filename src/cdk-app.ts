@@ -830,7 +830,8 @@ class XroadSecurityServerStack extends cdk.Stack {
         vpc,
         encrypted: true,
         enableAutomaticBackups: true,
-        lifecyclePolicy: efs.LifecyclePolicy.AFTER_30_DAYS,
+        throughputMode: efs.ThroughputMode.ELASTIC,
+        transitionToArchivePolicy: efs.LifecyclePolicy.AFTER_30_DAYS,
       },
     );
     const archiveVolume = {
