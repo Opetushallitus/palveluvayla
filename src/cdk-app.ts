@@ -201,6 +201,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       xroadAdminCredentials,
       xroadTokenPin,
       sshKeyPair,
+      config.upgradeXroadTo762,
     );
     const alb = this.createOutgoingProxyAlb(
       vpc,
@@ -234,7 +235,7 @@ class XroadSecurityServerStack extends cdk.Stack {
       sshKeyPair,
       secondaryNodes,
       certificateValidityLambda,
-      env,
+      config.upgradeXroadTo762,
     );
     if (config.logCleanupTask.enabled) {
       this.createLogCleanupTask(
@@ -786,12 +787,15 @@ class XroadSecurityServerStack extends cdk.Stack {
     sshKeyPair: secretsmanager.ISecret,
     secondaryNodes: ecs.FargateService,
     certificateValidityLambda: lambda.Function,
-    env: EnvName,
+    upgradeXroadTo762: boolean,
   ): PrimaryNodeResources {
     const asset = new ecr_assets.DockerImageAsset(this, "PrimaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.primary-node",
       platform: ecr_assets.Platform.LINUX_AMD64,
+      buildArgs: upgradeXroadTo762
+      ? { XROAD_BASE_IMAGE: "niis/xroad-security-server-sidecar:7.6.2-primary-fi@sha256:94725d97b235a654a6a417d4ad0cf58b3659ee0b58edc9d57bab097a67f58f89"}
+      : undefined,
     });
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -957,11 +961,15 @@ class XroadSecurityServerStack extends cdk.Stack {
     xroadAdminCredentials: secretsmanager.ISecret,
     xroadTokenPin: secretsmanager.ISecret,
     sshKeyPair: secretsmanager.ISecret,
+    upgradeXroadTo762: boolean,
   ) {
     const asset = new ecr_assets.DockerImageAsset(this, "SecondaryNodeAsset", {
       directory: path.join(__dirname, "../security-server-nodes"),
       file: "Dockerfile.secondary-node",
       platform: ecr_assets.Platform.LINUX_AMD64,
+      buildArgs: upgradeXroadTo762
+      ? { XROAD_BASE_IMAGE: "niis/xroad-security-server-sidecar:7.6.2-secondary-fi@sha256:2dabbdbdeef8067fa1116f09fec584cde98fb46abb36e43447d6a7182b34b97c"}
+      : undefined,
     });
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,

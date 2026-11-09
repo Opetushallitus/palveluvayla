@@ -27,6 +27,7 @@ export type Config = {
     clientSubsystemId: string;
     serviceIds: string[];
   }>;
+  upgradeXroadTo762: boolean;
 };
 
 export function getConfig(env: EnvName): Config {
@@ -76,6 +77,7 @@ const prod: Config = {
       serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
     },
   ],
+  upgradeXroadTo762: false,
 };
 
 const qa: Config = {
@@ -115,6 +117,7 @@ const qa: Config = {
       serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
     },
   ],
+  upgradeXroadTo762: true,
 };
 
 const dev: Config = {
@@ -159,4 +162,5 @@ const dev: Config = {
       serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot", "ping"],
     },
   ],
+  upgradeXroadTo762: false,
 };
