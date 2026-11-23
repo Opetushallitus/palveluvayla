@@ -77,7 +77,7 @@ const prod: Config = {
       serviceIds: ["opintoOikeudetService", "suomiFiRekisteritiedot"],
     },
   ],
-  upgradeXroadTo762: false,
+  upgradeXroadTo762: true,
 };
 
 const qa: Config = {
